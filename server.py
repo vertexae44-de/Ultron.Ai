@@ -215,6 +215,8 @@ class Handler(SimpleHTTPRequestHandler):
             self._chat()
         elif path == "/api/tts":
             self._tts()
+        elif path == "/api/hologram/project":
+            self._hologram_project()
         elif path == "/api/chats":
             if user := self._need_user():
                 self._save_chat(user["id"], uuid.uuid4().hex[:12])
@@ -454,6 +456,30 @@ class Handler(SimpleHTTPRequestHandler):
 
     # ---------- speech ----------
 
+    def _hologram_project(self):
+        """Generate an image of whatever was described and hand back just enough for the
+        hologram viewer -- it doesn't go through a chat turn, so this is a small dedicated
+        endpoint rather than a tool call."""
+        user, perms = self.whoami()
+        if not user:
+            self._send_json({"error": "Log in to project something new."}, HTTPStatus.UNAUTHORIZED)
+            return
+        try:
+            body = self._read_json()
+            prompt = body.get("prompt")
+            if not isinstance(prompt, str) or not prompt.strip():
+                raise ValueError
+        except (ValueError, KeyError, TypeError):
+            self.send_error(HTTPStatus.BAD_REQUEST, "expected {prompt}")
+            return
+        ctx = tools.Context({}, user, perms)
+        try:
+            result = tools.create_image(prompt, "square", ctx)
+        except tools.ToolError as e:
+            self._send_json({"error": str(e)}, HTTPStatus.BAD_REQUEST)
+            return
+        self._send_json({"url": result["url"], "prompt": prompt.strip()[:300], "images_left": result["images_left"]})
+
     def _tts(self):
         if not self.voice:
             self.send_error(HTTPStatus.SERVICE_UNAVAILABLE, "Kokoro voice not loaded")
@@ -607,10 +633,13 @@ class Handler(SimpleHTTPRequestHandler):
 
         if attached:
             reply = f"[calm] I received {attached} attachment{'s' if attached != 1 else ''}. Connect an API key and I'll look at them."
-        elif m := re.search(r"\bproject(?:ing)?\b.*\b(cube|sphere|torus|cone|pyramid|cylinder|diamond|core|image)\b|\bhologram\b", low):
-            shape = (m and m.group(1)) or "core"
-            call("control_app", {"action": "project", "value": shape})
-            reply = f"[excited] Projecting {shape}. Spread your hands to grow it."
+        elif re.search(r"\bproject(?:ing)?\b|\bhologram\b", low):
+            m = re.search(r"\bproject(?:ing)?\b(?:\s+(?:a|an|the))?\s+(.+)$", low)
+            what = m.group(1).strip() if m else "core"
+            call("control_app", {"action": "project", "value": what})
+            known = what in ("cube", "sphere", "torus", "cone", "pyramid", "cylinder", "diamond", "core", "image")
+            reply = (f"[excited] Projecting {what}. Spread your hands to grow it." if known
+                     else f"[excited] Generating {what} to project. Spread your hands to grow it once it loads.")
         elif m := re.search(r"\b(?:show|open)\b.*\b(gallery|settings|premium)\b", low):
             action = {"gallery": "show_images", "settings": "open_settings", "premium": "open_premium"}[m[1]]
             call("control_app", {"action": action})

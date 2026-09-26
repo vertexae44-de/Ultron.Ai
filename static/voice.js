@@ -5,6 +5,7 @@
 // Plus clap-to-wake: a small audio worklet listens for the sharp spike of a hand clap.
 
 const WORD_NUM = { one: 1, won: 1, two: 2, to: 2, too: 2, three: 3, tree: 3, four: 4, for: 4, fore: 4, five: 5 };
+const SHAPES_HINT = new Set(["core", "sphere", "ball", "orb", "cube", "box", "pyramid", "cone", "torus", "donut", "cylinder", "diamond", "star"]);
 const LEVEL_NAMES = { quick: 1, fast: 1, balanced: 2, smart: 3, genius: 4, max: 5, maximum: 5 };
 
 // Normalise what the recognizer heard: "Please, open the Code Editor." -> "open the code editor"
@@ -96,10 +97,13 @@ const COMMANDS = [
     toast("Tap + to pick a file. Browsers only open the file picker from a tap or click.", 6000);
     return "Tap the plus button to pick a file. Browsers need a tap for that one.";
   }],
-  [/^(?:project|show(?: me)?(?: a| an)?)(?: a| an)? (?:hologram of |3d )?(cube|box|sphere|ball|pyramid|cone|torus|donut|cylinder|diamond|star|core|orb)$/, (m) => Voice.run("project", m[1])],
   [/^(?:open|show|start)(?: the| a)? hologram$/, () => Voice.run("project", "core")],
   [/^(?:project|show)(?: me)?(?: my)? (?:the )?(?:image|picture|photo)(?: in 3d| as a hologram)?$/, () => Voice.run("project", "image")],
   [/^(?:close|dismiss|exit|stop)(?: the)? hologram$/, () => Voice.run("close_hologram")],
+  // "project a cube" / "project a red ferrari" / "show me a hologram of the eiffel tower" -- anything
+  // after "project"/"hologram of" is either a known primitive shape or a free description to generate.
+  [/^project(?: the| a| an)? (.+)$/, (m) => Voice.run("project", m[1])],
+  [/^show me(?: the| a| an)? hologram of (.+)$/, (m) => Voice.run("project", m[1])],
   [/^(?:replay|play (?:it |that )?again|restart(?: the animation)?)$/, () => Voice.run("replay_animation")],
   [/^(?:record|record (?:it|that|the animation|a video|video)|save (?:it |the animation )?as (?:a )?video)$/, () => Voice.run("record_animation")],
   [/^(?:yes|yeah|yep|confirm|do it|go ahead|delete it|ok|okay)$/, () => Modal.isOpen ? Voice.confirm() : null],
@@ -240,9 +244,12 @@ const Voice = {
         if (muted) { stopSpeech(); toast("Voice muted. Replies appear as text. Say “unmute” to hear them again."); return ""; }
         return "I'm back.";
       case "project": {
-        const shape = value || "core";
-        Hologram.open(shape).then(msg => { if (msg) speak(msg, "concerned"); });   // opens the camera + 3D view async
-        return `Projecting ${shape === "image" ? "your image" : shape}. Spread your hands to grow it, and a fist closes it.`;
+        const what = (value || "core").trim();
+        const isKnown = what === "image" || what === "picture" || what === "photo" || SHAPES_HINT.has(what.toLowerCase());
+        Hologram.open(what).then(msg => { if (msg) speak(msg, "concerned"); });   // opens the camera + 3D view async
+        return isKnown
+          ? `Projecting ${what === "image" ? "your image" : what}. Spread your hands to grow it, and a fist closes it.`
+          : `Generating "${what}" to project. One moment.`;
       }
       case "close_hologram": Hologram.close(); return "Closed.";
       case "replay_animation":

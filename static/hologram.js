@@ -1,13 +1,18 @@
 "use strict";
-// The hologram viewer: a floating 3D wireframe you control with your bare hands, like the
+// The hologram viewer: a floating 3D projection you control with your bare hands, like the
 // gesture-controlled demos going around. Spread both hands apart to grow it, bring them
 // together to shrink it, move your hand(s) to spin it, make a fist to dismiss it.
 //
-// There's no text-to-3D model generation here -- that needs a heavyweight cloud model this
-// app doesn't have. What's real: Ultron's own core as a live 3D object, a handful of named
-// primitive shapes ("project a torus"), and your last generated image projected onto a
-// floating glowing card. All rendered locally with Three.js; the only thing that leaves your
-// machine is whatever generate_image already sent.
+// Two kinds of object:
+//  - a wireframe primitive (cube, sphere, torus, ... or Ultron's own "core") -- a true 3D mesh,
+//    viewable from any angle.
+//  - "project a Lamborghini" / "project a Boeing 747 interior" / anything else you describe --
+//    Ultron generates a picture of it (the same image tool as always), then this builds a
+//    depth-relief card from that single picture: a subdivided plane whose vertices are pushed
+//    forward or back based on the picture's own brightness and how central each point is, so it
+//    visibly shifts and parallaxes as you turn it. That's an honest description of what it is: a
+//    very convincing single view, not a walk-around model. True arbitrary 3D generation needs a
+//    cloud text-to-3D service this app doesn't have.
 
 const THREE_URL = "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js";
 const SHAPES = {
@@ -36,25 +41,41 @@ const Hologram = {
   scale: 1, targetScale: 1, rotY: 0, targetRotY: 0, rotX: 0, targetRotX: 0,
   hasHands: false, lastHandsAt: 0,
 
+  // kind: a SHAPES name, "core", "image" (last generated image), or any other text -- treated as
+  // something to generate an image of and project.
   async open(kind, value) {
-    kind = (kind || "core").toLowerCase();
-    const wantsImage = kind === "image" || kind === "picture" || kind === "photo";
-    if (wantsImage && !Media.last) { return "You haven't generated an image yet. Ask me for one first."; }
-    if (!wantsImage && !SHAPES[kind]) kind = "core";
+    kind = (kind || "core").trim();
+    const low = kind.toLowerCase();
+    const wantsLast = low === "image" || low === "picture" || low === "photo";
+    const wantsShape = !wantsLast && !!SHAPES[low];
+    const wantsDescribed = !wantsLast && !wantsShape;
+    if (wantsLast && !Media.last) return "You haven't generated an image yet. Ask me for one first.";
 
     if (!Gesture.running) await Gesture.start();     // the hologram is pointless without hand tracking
     if (!Gesture.running) return "I need the camera for that -- gesture control couldn't start.";
 
-    this.kind = wantsImage ? "image" : kind;
-    this.label = wantsImage ? "your image" : kind;
+    this.kind = wantsShape ? low : "image";
+    this.label = wantsLast ? "your image" : wantsShape ? low : kind;
     this.scale = this.targetScale = 1; this.rotX = this.targetRotX = 0; this.rotY = this.targetRotY = 0.4;
     $("hologramView").hidden = false;
-    $("hologramTitle").textContent = wantsImage ? "Projecting your image" : `Projecting a ${kind}`;
+    $("hologramTitle").textContent = wantsDescribed ? `Generating "${kind}"…` : wantsLast ? "Projecting your image" : `Projecting a ${low}`;
     this.active = true;
     document.body.classList.add("hologram-open");
 
     try {
-      await this.build(wantsImage ? "image" : kind, value);
+      let source = value;
+      if (wantsDescribed) {
+        const res = await fetch("/api/hologram/project", {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: kind }),
+        });
+        const data = await res.json();
+        if (!res.ok) { this.close(); return data.error || "Couldn't generate that."; }
+        source = data;
+        Media.last = { url: data.url, prompt: data.prompt };
+        $("hologramTitle").textContent = `Projecting "${kind}"`;
+        if (App.config) { App.config.images.left = data.images_left; Account.render(); }
+      }
+      await this.build(wantsShape ? low : "image", source);
     } catch (err) {
       this.close();
       return "The hologram viewer couldn't load: " + (err.message || err);
@@ -84,13 +105,7 @@ const Hologram = {
     if (this.mesh) { this.group.remove(this.mesh); this.mesh.geometry.dispose(); this.mesh.material.dispose?.(); this.mesh = null; }
 
     if (kind === "image") {
-      const tex = await new THREE.TextureLoader().loadAsync(value?.url || Media.last.url);
-      const ar = tex.image.width / tex.image.height;
-      const geo = new THREE.PlaneGeometry(2.4 * Math.max(ar, 1), 2.4 * Math.max(1 / ar, 1));
-      const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.DoubleSide });
-      this.mesh = new THREE.Mesh(geo, mat);
-      const rim = new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: 0xff2b36 }));
-      this.mesh.add(rim);
+      this.mesh = await this.buildDepthCard(value?.url || Media.last.url);
     } else {
       const geo = SHAPES[kind]();
       const mat = new THREE.MeshBasicMaterial({ color: 0xff2b36, wireframe: true, transparent: true, opacity: .85 });
@@ -100,6 +115,42 @@ const Hologram = {
       this.mesh.add(glow);
     }
     this.group.add(this.mesh);
+  },
+
+  // Turns a single flat picture into a relief card: a subdivided plane pushed forward where the
+  // picture is bright and central, and back where it's dark or near the edges. No real depth
+  // sensor or model -- just enough displacement that turning it in your hand actually parallaxes.
+  async buildDepthCard(url) {
+    const tex = await new THREE.TextureLoader().loadAsync(url);
+    const img = tex.image;
+    const ar = img.width / img.height;
+    const w = 2.6 * Math.max(ar, 1), h = 2.6 * Math.max(1 / ar, 1);
+    const seg = 64;
+    const geo = new THREE.PlaneGeometry(w, h, seg, seg);
+
+    const c = document.createElement("canvas");
+    c.width = seg + 1; c.height = seg + 1;
+    const g = c.getContext("2d", { willReadFrequently: true });
+    g.drawImage(img, 0, 0, c.width, c.height);
+    const px = g.getImageData(0, 0, c.width, c.height).data;
+
+    const pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const col = i % (seg + 1), row = Math.floor(i / (seg + 1));
+      const j = ((seg - row) * (seg + 1) + col) * 4;          // plane rows run bottom-to-top; image top-to-bottom
+      const lum = (px[j] * 0.299 + px[j + 1] * 0.587 + px[j + 2] * 0.114) / 255;
+      const u = col / seg - 0.5, v = row / seg - 0.5;
+      const central = 1 - Math.min(1, Math.hypot(u, v) * 1.5);  // subject usually sits toward the middle
+      const depth = (lum * 0.6 + central * 0.4);
+      pos.setZ(i, (depth - 0.5) * 0.85);
+    }
+    geo.computeVertexNormals();
+
+    const mat = new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide });
+    const mesh = new THREE.Mesh(geo, mat);
+    const rim = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(w, h)), new THREE.LineBasicMaterial({ color: 0xff2b36, transparent: true, opacity: .5 }));
+    mesh.add(rim);
+    return mesh;
   },
 
   resize() {

@@ -185,9 +185,12 @@ APP_ACTIONS = {
     "close": "close whatever popup, drawer or panel is open",
     "show_voice_commands": "show the list of voice commands",
     "project": "open the hand-controlled 3D hologram viewer; value = a shape (cube, sphere, torus, "
-               "cone, pyramid, cylinder, diamond, core) or 'image' to project the last generated image. "
-               "The user grows/shrinks it by spreading or pinching their hands and rotates it by moving "
-               "their hand, in front of their camera.",
+               "cone, pyramid, cylinder, diamond, core), 'image' for the last generated image, or ANY "
+               "other description (a car, a plane, a building, an interior, literally anything) -- that "
+               "generates a picture of it and projects it as a depth card. Say plainly that a described "
+               "object is a single realistic view you can turn slightly, not a full walk-around 3D model "
+               "(there's no engine for that here). The user grows/shrinks it by spreading or pinching "
+               "their hands and rotates it by moving their hand, in front of their camera.",
     "close_hologram": "close the hologram viewer",
 }
 TOOLS.append({
@@ -619,8 +622,10 @@ def _openai():
     return _openai_client
 
 
-def _generate_image(args, ctx):
-    prompt, shape = args.get("prompt"), args.get("shape") or "square"
+def create_image(prompt: str, shape: str, ctx) -> dict:
+    """The actual OpenAI call, quota and file handling. Shared by the generate_image tool and
+    the direct /api/hologram/project endpoint (projecting a described object doesn't go through
+    a chat turn, so it needs a plain function to call, not just a tool)."""
     if not isinstance(prompt, str) or not prompt.strip():
         raise ToolError("prompt must be a non-empty string.")
     if shape not in IMAGE_SIZES:
@@ -664,13 +669,18 @@ def _generate_image(args, ctx):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(base64.b64decode(b64))
     path.with_suffix(".json").write_text(json.dumps({"prompt": prompt.strip()[:500], "created": time.time()}))
-    left = quota.remaining(limit)
-    ctx.events.append({"type": "image", "url": f"/generated/{image_id}.png", "prompt": prompt.strip()[:300], "left": left})
+    return {"image_id": image_id, "url": f"/generated/{image_id}.png", "images_left": quota.remaining(limit)}
+
+
+def _generate_image(args, ctx):
+    prompt, shape = args.get("prompt"), args.get("shape") or "square"
+    result = create_image(prompt, shape, ctx)
+    ctx.events.append({"type": "image", "url": result["url"], "prompt": prompt.strip()[:300], "left": result["images_left"]})
     return {
-        "image_id": image_id,
+        "image_id": result["image_id"],
         "shown_to_user": True,
-        "images_left": left,
-        "limit": f"{limit} per {IMAGE_WINDOW_HOURS:g} hours",
+        "images_left": result["images_left"],
+        "limit": f"{ctx.perms.get('image_limit', 0)} per {IMAGE_WINDOW_HOURS:g} hours",
     }
 
 

@@ -66,7 +66,9 @@ Two things still need a tap, because browsers require one: the **START** screen 
 
 **Hand-gesture control** (Settings, off by default -- it asks for the camera) recognizes a few gestures on-device, no video ever leaves your machine: open palm to wake, a fist to stop, thumbs up/down to confirm or cancel a popup, and a peace sign for a new chat. A small preview pill in the corner shows what it currently sees.
 
-**Hologram viewer.** Say "project a cube" (or torus, sphere, pyramid, cone, cylinder, diamond, or just "project the core" for Ultron's own orb), or click the Hologram tile. A live 3D wireframe appears, and you control it with your bare hands in front of the camera: spread both hands apart to grow it, bring them together to shrink it, move your hand to spin it, make a fist to dismiss it. "Project my image" projects your last generated image as a floating glowing card instead. Runs entirely in the browser (Three.js + on-device hand tracking); there's no text-to-3D model generation behind it, just Ultron's own shape and named primitives.
+**Hologram viewer.** Say "project a cube" (or torus, sphere, pyramid, cone, cylinder, diamond, or just "project the core" for Ultron's own orb), or click the Hologram tile. A live 3D wireframe appears, and you control it with your bare hands in front of the camera: spread both hands apart to grow it, bring them together to shrink it, move your hand to spin it, make a fist to dismiss it.
+
+Say **"project a [anything]"** -- a Ferrari, a 747, a Victorian house, a kitchen interior, literally any description -- and Ultron generates a picture of it (the existing image tool, needs `OPENAI_API_KEY` and an account) and turns it into a depth-relief card: a plane whose surface is pushed forward or back based on the picture's own brightness and how central each point is, so it genuinely parallaxes as you turn it in your hands. It's an honest single view you can tilt, not a walk-around 3D model -- true arbitrary text-to-3D needs a paid cloud service this app doesn't use. "Project my image" does the same with your last generated image, no new generation needed.
 
 ## Artwork
 
