@@ -138,6 +138,11 @@ TOOLS = [
         },
     },
     {
+        "name": "get_market_trends",
+        "description": "Get today's top 3 trending cryptocurrencies and top 3 trending US stocks. Use it if the user asks what's trending, what's moving, or about the market in general.",
+        "input_schema": {"type": "object", "properties": {}},
+    },
+    {
         "name": "generate_image",
         "description": (
             f"Create an image from a text description and show it to the user. Each user has a small "
@@ -295,6 +300,77 @@ def _say_duration(seconds: int) -> str:
     m, s = divmod(rem, 60)
     parts = [f"{n} {unit}{'s' if n != 1 else ''}" for n, unit in ((h, "hour"), (m, "minute"), (s, "second")) if n]
     return " ".join(parts) or "0 seconds"
+
+
+# ---------- markets (CoinGecko + Yahoo Finance's public trending endpoints: no key needed) ----------
+
+MARKETS_CACHE_SECONDS = 90
+_markets_cache: dict = {"at": 0.0, "data": None}
+_markets_lock = threading.Lock()
+
+
+def _market_json(url: str, params: dict | None = None) -> dict:
+    """Like _http_json, but with a browser user agent (Yahoo's endpoints reject the default one)
+    and a plain error, since this isn't the weather service."""
+    full = url + ("?" + urllib.parse.urlencode(params) if params else "")
+    req = urllib.request.Request(full, headers={
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept": "application/json",
+    })
+    with urllib.request.urlopen(req, timeout=8) as resp:
+        return json.load(resp)
+
+
+def _fetch_trending_crypto() -> list[dict]:
+    data = _market_json("https://api.coingecko.com/api/v3/search/trending")
+    out = []
+    for item in (data.get("coins") or [])[:3]:
+        c = item.get("item") or {}
+        price = ((c.get("data") or {}).get("price") or 0)
+        change = ((c.get("data") or {}).get("price_change_percentage_24h") or {}).get("usd")
+        out.append({
+            "symbol": str(c.get("symbol") or "").upper(), "name": str(c.get("name") or ""),
+            "price": round(float(price), 6) if price else None,
+            "change_pct": round(float(change), 2) if change is not None else None,
+        })
+    return out
+
+
+def _fetch_trending_stocks() -> list[dict]:
+    trending = _market_json("https://query1.finance.yahoo.com/v1/finance/trending/US")
+    symbols = [q["symbol"] for q in ((trending.get("finance") or {}).get("result") or [{}])[0].get("quotes", [])[:3]]
+    if not symbols:
+        return []
+    quotes = _market_json("https://query1.finance.yahoo.com/v7/finance/quote", {"symbols": ",".join(symbols)})
+    out = []
+    for q in (quotes.get("quoteResponse") or {}).get("result", [])[:3]:
+        out.append({
+            "symbol": q.get("symbol", ""), "name": str(q.get("shortName") or q.get("symbol") or ""),
+            "price": round(float(q["regularMarketPrice"]), 2) if q.get("regularMarketPrice") is not None else None,
+            "change_pct": round(float(q["regularMarketChangePercent"]), 2) if q.get("regularMarketChangePercent") is not None else None,
+        })
+    return out
+
+
+def market_trends() -> dict:
+    """Top 3 trending crypto and top 3 trending US stocks, cached briefly so a burst of page
+    loads doesn't hammer either API. Each half fails independently."""
+    with _markets_lock:
+        if _markets_cache["data"] is not None and time.time() - _markets_cache["at"] < MARKETS_CACHE_SECONDS:
+            return _markets_cache["data"]
+    out = {"crypto": [], "stocks": [], "errors": []}
+    for key, fetch in (("crypto", _fetch_trending_crypto), ("stocks", _fetch_trending_stocks)):
+        try:
+            out[key] = fetch()
+        except Exception as e:
+            out["errors"].append(f"{key}: {e}")
+    with _markets_lock:
+        _markets_cache["at"], _markets_cache["data"] = time.time(), out
+    return out
+
+
+def _get_market_trends(args, ctx):
+    return market_trends()
 
 
 # ---------- time ----------
@@ -609,6 +685,7 @@ def _control_app(args, ctx):
 
 HANDLERS = {
     "control_app": _control_app,
+    "get_market_trends": _get_market_trends,
     "set_timer": _set_timer,
     "list_timers": _list_timers,
     "cancel_timer": _cancel_timer,

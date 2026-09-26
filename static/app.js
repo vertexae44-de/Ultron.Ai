@@ -543,7 +543,7 @@ async function ask(text, { voice = false } = {}) {
   const content = files.blocks.length
     ? [...files.blocks, { type: "text", text: text || "Please take a look at what I attached." }]
     : text;
-  Chat.addUser(content, text, files.meta);
+  Chat.addUser(content, text, files.meta, { switchView: !voice });
   setMode("thinking");
   abortCtl = new AbortController();
   streamDone = false; pendingUtterances = 0;

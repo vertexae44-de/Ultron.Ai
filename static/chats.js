@@ -20,13 +20,15 @@ const Chat = {
   log: [],         // what the transcript shows: messages plus images, code and animations
   liveEl: null, sealed: 0, saving: Promise.resolve(),
 
-  addUser(content, text, meta) {
+  addUser(content, text, meta, { switchView = true } = {}) {
     this.history.push({ role: "user", content });
     const entry = { role: "user", text, files: meta };
     this.log.push(entry);
     if (!this.title) this.title = (text || meta.map(f => f.name).join(", ")).slice(0, 60) || "New chat";
     $("chatTitle").textContent = this.title;
-    View.show("chat");
+    // Voice conversations stay wherever you are -- home, code, wherever -- instead of jumping
+    // to the text transcript. It's all still saved (and rendered into it); say "show the chat" to see it.
+    if (switchView) View.show("chat");
     this.render(entry);
     this.sealed = 0;
     this.liveEl = this.renderAssistant(null);
@@ -234,6 +236,67 @@ $("chatSearch").addEventListener("input", () => Chats.render());
 $("starFilter").addEventListener("click", (e) => { Chats.starOnly = !Chats.starOnly; e.currentTarget.setAttribute("aria-pressed", String(Chats.starOnly)); Chats.render(); });
 $("topSearch").addEventListener("keydown", (e) => { if (e.key === "Enter") { Chats.openDrawer(e.target.value); e.target.value = ""; } });
 onConfig(() => Chats.refresh());
+
+// ---------- markets: trending crypto and stocks, loaded on startup (no chat, no voice needed) ----------
+const Markets = {
+  interval: null,
+
+  async load() {
+    try {
+      const r = await fetch("/api/markets");
+      if (!r.ok) throw new Error(r.status);
+      const data = await r.json();
+      this.render(data);
+      return data;
+    } catch {
+      $("marketsList").replaceChildren(el("li", { class: "empty" }, "Couldn't reach the market right now."));
+      return null;
+    }
+  },
+
+  render(data) {
+    const rows = [
+      ...(data.crypto || []).map(c => ({ ...c, kind: "Crypto" })),
+      ...(data.stocks || []).map(c => ({ ...c, kind: "Stock" })),
+    ];
+    if (!rows.length) {
+      $("marketsList").replaceChildren(el("li", { class: "empty" }, "The market feeds aren't reachable right now."));
+      return;
+    }
+    $("marketsList").replaceChildren(...rows.map(c => {
+      const up = c.change_pct == null ? null : c.change_pct >= 0;
+      return el("li", { class: "row" },
+        el("span", { class: "sym" }, (c.symbol || c.name || "?").slice(0, 4)),
+        el("span", { class: "tx" }, el("span", { class: "name" }, c.name || c.symbol), el("span", { class: "kind" }, c.kind)),
+        el("span", { class: "num" },
+          el("span", { class: "price" }, c.price == null ? "—" : (c.kind === "Crypto" && c.price < 1 ? "$" + c.price : "$" + c.price.toLocaleString())),
+          up === null ? null : el("span", { class: "chg " + (up ? "up" : "down") }, (up ? "▲ " : "▼ ") + Math.abs(c.change_pct) + "%")));
+    }));
+    $("marketsRefreshed").textContent = "Updated " + new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  },
+
+  // A short spoken line the first time Ultron starts up in a session -- "shows me the market" visually
+  // always happens (the card above); this adds the "and tells me" part, once, quietly.
+  briefLine(data) {
+    const top = (data.crypto || [])[0], stock = (data.stocks || [])[0];
+    if (!top && !stock) return null;
+    const say = (c) => `${c.name} ${c.change_pct == null ? "" : (c.change_pct >= 0 ? "up" : "down") + " " + Math.abs(c.change_pct) + " percent"}`;
+    const bits = [top && `${say(top)} in crypto`, stock && `${say(stock)} in stocks`].filter(Boolean);
+    return `Markets are up. ${bits.join(", and ")} trending right now.`;
+  },
+};
+
+(async () => {
+  const data = await Markets.load();
+  Markets.interval = setInterval(() => Markets.load(), 90000);
+  let brand = false;
+  try { brand = !sessionStorage.getItem("ultron.marketBrief"); sessionStorage.setItem("ultron.marketBrief", "1"); } catch {}
+  if (brand && data && store.get("marketBrief", true)) {
+    const line = Markets.briefLine(data);
+    if (line) { voiceTurn = false; speak(line, "calm"); }
+  }
+})();
+
 
 // ---------- images ----------
 const Media = {

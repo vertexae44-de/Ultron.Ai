@@ -34,7 +34,9 @@ No key yet? `python server.py --mock` runs everything with a keyword bot that st
 | **Animate** | Ask for any animation. It plays in a player with Replay, Fullscreen, **Record video** (WebM or MP4), **Download HTML** and **Edit code**. |
 | **Images** | "Generate an image of…" uses OpenAI's image model. Each account gets **5 images per 5 hours** (a rolling window that survives restarts). The Images page shows your gallery. |
 | **Chats** | Every conversation is saved to your account, with search, star, rename and delete. **New chat** starts fresh. |
-| **Tools** | Timers with alarms, weather (Open-Meteo, free), the current time. |
+| **Tools** | Timers with alarms, weather (Open-Meteo, free), the current time, trending crypto and stocks (CoinGecko + Yahoo Finance, both free, no key). |
+| **Trending** | A "Trending" card in the sidebar shows the top 3 trending cryptocurrencies and top 3 trending US stocks, loaded automatically the moment Ultron opens (and refreshed every 90 seconds) -- no need to ask. It says a short spoken line about it too, once per visit, unless you turn that off in Settings. |
+| **Hands-free stays hands-free** | A voice conversation never jumps you to the text chat screen -- you stay wherever you are (home, code, wherever) and it's saved regardless; say "show the chat" to see it. Typing in the composer still opens the chat view as before. |
 
 ![animation player](docs/animation.png)
 
@@ -61,6 +63,8 @@ Two things still need a tap, because browsers require one: the **START** screen 
 **Clapping.** Settings has *Clap to wake* (off, one clap, two claps) and a sensitivity. The detector listens for the sharp spike of a clap that dies away fast, and only a lone clap or pair counts, so talking, music and typing don't set it off. It ignores claps while Ultron is talking and for a moment after you type or click. Two claps (the default) gives the fewest false starts.
 
 **Keep listening after replies** (on by default) turns a question into a conversation: after answering something you said, Ultron listens for about as long as the browser's recognizer waits for speech, then goes back to standing by.
+
+**Hand-gesture control** (Settings, off by default -- it asks for the camera) recognizes a few gestures on-device, no video ever leaves your machine: open palm to wake, a fist to stop, thumbs up/down to confirm or cancel a popup, and a peace sign for a new chat. A small preview pill in the corner shows what it currently sees.
 
 ## Artwork
 

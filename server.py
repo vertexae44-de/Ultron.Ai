@@ -63,6 +63,7 @@ You have tools for timers, weather, the current time, a code editor and image ge
 and control_app to operate the app itself (switch views, open the editor, run code, change the \
 level or model, start a new chat, and so on). The user talks to you hands-free, so when they ask \
 you to do something in the app, do it with control_app rather than telling them where to click. \
+You also have get_market_trends for today's top trending crypto and stocks, if asked. \
 Use them rather than guessing, and don't narrate them: at most a few words like "Checking." \
 before a slow lookup. When reporting weather, give the headline, not every number.
 Code never goes in your spoken reply. Put it in the editor with write_code, then say in a \
@@ -165,6 +166,8 @@ class Handler(SimpleHTTPRequestHandler):
         elif path == "/api/images":
             if user := self._need_user():
                 self._send_json(tools.list_images(user["id"]))
+        elif path == "/api/markets":
+            self._send_json(tools.market_trends())
         elif path.startswith("/api/chats/"):
             if user := self._need_user():
                 chat = _load_chat(user["id"], path.rsplit("/", 1)[1], touch=True)
@@ -640,6 +643,10 @@ class Handler(SimpleHTTPRequestHandler):
         elif "time" in low:
             r = call("get_current_time", {})
             reply = f"[calm] It's {r['local_time']}."
+        elif re.search(r"\b(trending|market|stocks?|crypto)\b", low):
+            r = call("get_market_trends", {})
+            bits = [f"{c['name']} at {c['price']}" for c in r.get("crypto", [])[:1]] + [f"{c['name']} at {c['price']}" for c in r.get("stocks", [])[:1]]
+            reply = "[calm] " + (", ".join(bits) + " leading right now." if bits else "The market feeds aren't reachable right now.")
         else:
             reply = (f"[amused] Mock mode, level {ctx.effort or EFFORT}. You said: {said}. "
                      "[concerned] Connect an API key and I will actually answer.")
