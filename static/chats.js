@@ -300,7 +300,10 @@ const Markets = {
 
 // ---------- images ----------
 const Media = {
+  last: null,   // { url, prompt } of the most recently generated image, for the hologram viewer
+
   showImage(url, prompt, left = null) {
+    Media.last = { url, prompt };
     const info = left !== null && App.config ? `${left} of ${App.config.images.limit} images left in this ${App.config.images.window_hours}-hour window` : "";
     Modal.open(el("div", { class: "box wide", role: "dialog", "aria-label": "Image" },
       el("header", {}, el("h2", {}, "Generated image"), el("span", { class: "muted", style: "color:var(--dim);font-size:13px" }, info),

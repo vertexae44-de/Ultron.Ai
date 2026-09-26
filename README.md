@@ -66,6 +66,8 @@ Two things still need a tap, because browsers require one: the **START** screen 
 
 **Hand-gesture control** (Settings, off by default -- it asks for the camera) recognizes a few gestures on-device, no video ever leaves your machine: open palm to wake, a fist to stop, thumbs up/down to confirm or cancel a popup, and a peace sign for a new chat. A small preview pill in the corner shows what it currently sees.
 
+**Hologram viewer.** Say "project a cube" (or torus, sphere, pyramid, cone, cylinder, diamond, or just "project the core" for Ultron's own orb), or click the Hologram tile. A live 3D wireframe appears, and you control it with your bare hands in front of the camera: spread both hands apart to grow it, bring them together to shrink it, move your hand to spin it, make a fist to dismiss it. "Project my image" projects your last generated image as a floating glowing card instead. Runs entirely in the browser (Three.js + on-device hand tracking); there's no text-to-3D model generation behind it, just Ultron's own shape and named primitives.
+
 ## Artwork
 
 Ultron ships with your robot artwork (`static/art/robot.jpg`) in four places: behind the START screen, beside the core on Home, in the sidebar card, and in the "Unlock the full power" banner.

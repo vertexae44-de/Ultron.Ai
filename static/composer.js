@@ -22,6 +22,7 @@ const ICONS = {
   file: '<path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>',
   video: '<rect x="3" y="5" width="18" height="12" rx="2"/><path d="m10 9 5 2.5-5 2.5z"/><path d="M3 20h18"/>',
   model: '<path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="m3 7 9 5 9-5M12 12v10"/>',
+  hologram: '<path d="M12 2v6M12 22v-6M4.9 4.9l4.2 4.2M14.9 14.9l4.2 4.2M4.9 19.1l4.2-4.2M14.9 9.1l4.2-4.2"/><circle cx="12" cy="12" r="3.4"/>',
 };
 const icon = (name, cls = "i") => `<svg class="${cls}" viewBox="0 0 24 24">${ICONS[name]}</svg>`;
 const frag = (html) => document.createRange().createContextualFragment(html);
@@ -64,6 +65,7 @@ function act(name) {
     case "generate": if (Account.require("generate images", "images")) View.show("images"), $("genPrompt").focus(); break;
     case "code": Code.open(); break;
     case "animate": prefill("Make an animation of "); break;
+    case "hologram": Hologram.open("core").then(msg => { if (msg) toast(msg, 5000); }); break;
     case "files": if (Account.require("attach files", "attachments")) $("fileInput").click(); break;
     case "voice": toggleTalk(); break;
     case "history": Chats.openDrawer(); break;
@@ -287,7 +289,8 @@ async function videoBlocks(file) {
   for (const [label, text, send] of CHIPS)
     $("chips").append(el("button", { class: "pill", type: "button", onclick: () => prefill(text, { send }) }, label));
   const TOOLS = [["Chat", "chat", "chat"], ["Generate Images", "image", "generate"], ["Code", "code", "code"],
-    ["Voice", "voice", "voice"], ["File Upload", "file", "files"], ["Animation", "video", "animate"]];
+    ["Voice", "voice", "voice"], ["File Upload", "file", "files"], ["Animation", "video", "animate"],
+    ["Hologram", "hologram", "hologram"]];
   for (const [label, ic, a] of TOOLS)
     $("tools").append(el("button", { class: "tile", type: "button", "data-act": a }, frag(icon(ic)), label));
 })();

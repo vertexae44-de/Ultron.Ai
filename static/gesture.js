@@ -37,7 +37,7 @@ const Gesture = {
         const files = await FilesetResolver.forVisionTasks(GESTURE_VISION_URL);
         this.recognizer = await GestureRecognizer.createFromOptions(files, {
           baseOptions: { modelAssetPath: GESTURE_MODEL_URL, delegate: "GPU" },
-          runningMode: "VIDEO", numHands: 1,
+          runningMode: "VIDEO", numHands: 2,   // 2: the hologram viewer wants both hands for pinch/spread
         });
 
         this.buildPanel();
@@ -86,6 +86,7 @@ const Gesture = {
     if (this.video.readyState < 2) return;
     let result;
     try { result = this.recognizer.recognizeForVideo(this.video, performance.now()); } catch { return; }
+    if (typeof Hologram !== "undefined" && Hologram.active) Hologram.updateHands(result);
     const top = result.gestures?.[0]?.[0];
     const label = top && top.score >= GESTURE_MIN_SCORE && top.categoryName !== "None" ? top.categoryName : null;
     if (this.label) this.label.textContent = label ? PRETTY[label] || label : "…";
@@ -100,6 +101,11 @@ const Gesture = {
   },
 
   fire(label) {
+    if (typeof Hologram !== "undefined" && Hologram.active) {
+      if (label === "Closed_Fist") Hologram.close();
+      else if (label === "Open_Palm") Hologram.resetView();
+      return;                        // other gestures are ignored while the hologram is open
+    }
     switch (label) {
       case "Open_Palm":
         if (mode === "idle" || mode === "listening") Voice.wake();

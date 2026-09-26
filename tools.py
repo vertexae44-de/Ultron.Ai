@@ -184,6 +184,11 @@ APP_ACTIONS = {
     "voice_output": "speak replies aloud; value = on or off",
     "close": "close whatever popup, drawer or panel is open",
     "show_voice_commands": "show the list of voice commands",
+    "project": "open the hand-controlled 3D hologram viewer; value = a shape (cube, sphere, torus, "
+               "cone, pyramid, cylinder, diamond, core) or 'image' to project the last generated image. "
+               "The user grows/shrinks it by spreading or pinching their hands and rotates it by moving "
+               "their hand, in front of their camera.",
+    "close_hologram": "close the hologram viewer",
 }
 TOOLS.append({
     "name": "control_app",

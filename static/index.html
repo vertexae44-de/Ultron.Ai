@@ -311,6 +311,14 @@
   .gesture-thumb { width: 44px; height: 33px; border-radius: 8px; object-fit: cover; transform: scaleX(-1); background: #000; }
   .gesture-label { font-size: 12px; color: var(--dim); white-space: nowrap; }
   .gesture-panel .icon-btn { width: 22px; height: 22px; font-size: 14px; }
+  #hologramView { position: fixed; inset: 0; z-index: 80; background: radial-gradient(ellipse at 50% 40%, rgba(90,10,16,.35), #030102 70%); }
+  body.hologram-open .gesture-panel { bottom: 76px; }   /* stay clear of the hologram's own hint bar */
+  .hologram-head { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 14px;
+    padding: 16px 18px; z-index: 1; }
+  .hologram-head h2 { margin: 0; font-family: var(--display); letter-spacing: .08em; font-size: 15px; color: #fff; }
+  .hologram-hint { flex: 1; text-align: center; font-size: 12.5px; color: var(--dim); }
+  #hologramCanvas { width: 100%; height: 100%; display: block; touch-action: none; }
+  @media (max-width: 640px) { .hologram-hint { display: none; } }
   .voice-help dl { display: grid; grid-template-columns: max-content 1fr; gap: 10px 18px; margin: 0 0 14px; }
   .voice-help dt { font-weight: 700; color: var(--red); }
   .voice-help dd { margin: 0; color: var(--fg); }
@@ -654,6 +662,15 @@
 
 <div id="timers" aria-live="polite"></div>
 <div id="modal" hidden></div>
+
+<div id="hologramView" hidden aria-label="Hologram viewer" role="dialog">
+  <div class="hologram-head">
+    <h2 id="hologramTitle">Projecting</h2>
+    <span class="hologram-hint" id="hologramHint">Show your hand to the camera</span>
+    <button class="icon-btn" id="closeHologram" aria-label="Close">×</button>
+  </div>
+  <canvas id="hologramCanvas"></canvas>
+</div>
 <div id="dropzone" hidden>Drop files to attach</div>
 <div id="toast" hidden role="status"></div>
 
@@ -663,6 +680,7 @@
 <script src="chats.js"></script>
 <script src="account.js"></script>
 <script src="voice.js"></script>
+<script src="hologram.js"></script>
 <script src="gesture.js"></script>
 </body>
 </html>

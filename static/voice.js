@@ -96,6 +96,10 @@ const COMMANDS = [
     toast("Tap + to pick a file. Browsers only open the file picker from a tap or click.", 6000);
     return "Tap the plus button to pick a file. Browsers need a tap for that one.";
   }],
+  [/^(?:project|show(?: me)?(?: a| an)?)(?: a| an)? (?:hologram of |3d )?(cube|box|sphere|ball|pyramid|cone|torus|donut|cylinder|diamond|star|core|orb)$/, (m) => Voice.run("project", m[1])],
+  [/^(?:open|show|start)(?: the| a)? hologram$/, () => Voice.run("project", "core")],
+  [/^(?:project|show)(?: me)?(?: my)? (?:the )?(?:image|picture|photo)(?: in 3d| as a hologram)?$/, () => Voice.run("project", "image")],
+  [/^(?:close|dismiss|exit|stop)(?: the)? hologram$/, () => Voice.run("close_hologram")],
   [/^(?:replay|play (?:it |that )?again|restart(?: the animation)?)$/, () => Voice.run("replay_animation")],
   [/^(?:record|record (?:it|that|the animation|a video|video)|save (?:it |the animation )?as (?:a )?video)$/, () => Voice.run("record_animation")],
   [/^(?:yes|yeah|yep|confirm|do it|go ahead|delete it|ok|okay)$/, () => Modal.isOpen ? Voice.confirm() : null],
@@ -235,6 +239,12 @@ const Voice = {
         muted = value === "off"; store.set("muted", muted);
         if (muted) { stopSpeech(); toast("Voice muted. Replies appear as text. Say “unmute” to hear them again."); return ""; }
         return "I'm back.";
+      case "project": {
+        const shape = value || "core";
+        Hologram.open(shape).then(msg => { if (msg) speak(msg, "concerned"); });   // opens the camera + 3D view async
+        return `Projecting ${shape === "image" ? "your image" : shape}. Spread your hands to grow it, and a fist closes it.`;
+      }
+      case "close_hologram": Hologram.close(); return "Closed.";
       case "replay_animation":
         if (!Player.frame) return "There's no animation open.";
         Player.frame.srcdoc = sandboxDoc(Player.html); return "";
@@ -243,6 +253,7 @@ const Voice = {
         if (Player.recordBtn.disabled) return "Already recording.";
         Player.record(); return `Recording ${Player.seconds} seconds.`;
       case "close":
+        if (Hologram.active) { Hologram.close(); return ""; }
         if (document.querySelector(".menu")) { closeMenus(); return ""; }
         if (Modal.isOpen) { Modal.close(); return ""; }
         if (!$("chatsPanel").hidden) { Chats.closeDrawer(); return ""; }

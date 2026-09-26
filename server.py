@@ -607,6 +607,10 @@ class Handler(SimpleHTTPRequestHandler):
 
         if attached:
             reply = f"[calm] I received {attached} attachment{'s' if attached != 1 else ''}. Connect an API key and I'll look at them."
+        elif m := re.search(r"\bproject(?:ing)?\b.*\b(cube|sphere|torus|cone|pyramid|cylinder|diamond|core|image)\b|\bhologram\b", low):
+            shape = (m and m.group(1)) or "core"
+            call("control_app", {"action": "project", "value": shape})
+            reply = f"[excited] Projecting {shape}. Spread your hands to grow it."
         elif m := re.search(r"\b(?:show|open)\b.*\b(gallery|settings|premium)\b", low):
             action = {"gallery": "show_images", "settings": "open_settings", "premium": "open_premium"}[m[1]]
             call("control_app", {"action": action})
