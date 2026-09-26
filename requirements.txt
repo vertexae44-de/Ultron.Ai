@@ -1,0 +1,6 @@
+anthropic>=1.8
+openai>=3.0  # image generation (optional: needs OPENAI_API_KEY)
+pyjwt[crypto]>=2.7  # Google / Apple sign-in (verifies their tokens)
+stripe>=15.0  # Premium subscriptions (optional: needs STRIPE_SECRET_KEY)
+tzdata  # time zone names on Windows and old aliases like Asia/Calcutta
+kokoro-onnx>=0.4  # local neural voice; also run: python setup_voice.py

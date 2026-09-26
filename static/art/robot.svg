@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-60 0 520 560" role="img" aria-label="Ultron robot head">
+  <defs>
+    <linearGradient id="metal" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3a3438"/><stop offset=".45" stop-color="#17131a"/><stop offset="1" stop-color="#070507"/>
+    </linearGradient>
+    <linearGradient id="metalR" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4a1418"/><stop offset=".35" stop-color="#1c1216"/><stop offset="1" stop-color="#070507"/>
+    </linearGradient>
+    <linearGradient id="plate" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2b2529"/><stop offset="1" stop-color="#0d0a0c"/>
+    </linearGradient>
+    <radialGradient id="eyeGlow" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#fff"/><stop offset=".25" stop-color="#ff6b70"/><stop offset=".6" stop-color="#ff1f2d"/><stop offset="1" stop-color="#ff1f2d" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="aura" cx=".5" cy=".45" r=".55">
+      <stop offset="0" stop-color="#ff1f2d" stop-opacity=".35"/><stop offset="1" stop-color="#ff1f2d" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="soft"><feGaussianBlur stdDeviation="3"/></filter>
+  </defs>
+
+  <ellipse cx="200" cy="250" rx="250" ry="270" fill="url(#aura)"/>
+
+  <!-- shoulders -->
+  <path d="M-60 560 L-40 470 L60 430 L150 452 L200 470 L250 452 L340 430 L440 470 L460 560 Z" fill="url(#metal)" stroke="#000" stroke-width="3"/>
+  <path d="M340 430 L440 470 L460 560" fill="none" stroke="#ff1f2d" stroke-width="4" filter="url(#soft)" opacity=".8"/>
+  <path d="M60 430 L110 500 L150 452 M340 430 L290 500 L250 452" fill="none" stroke="#000" stroke-width="3"/>
+  <path d="M-40 470 L60 430 L110 500 L20 540 Z" fill="url(#plate)" stroke="#000" stroke-width="2"/>
+  <path d="M440 470 L340 430 L290 500 L380 540 Z" fill="url(#metalR)" stroke="#000" stroke-width="2"/>
+  <path d="M300 505 L385 540" stroke="#ff4a52" stroke-width="1.5" opacity=".7"/>
+
+  <!-- side fins swept back -->
+  <path d="M70 150 L8 88 L30 200 L66 236 Z" fill="url(#plate)" stroke="#000" stroke-width="2"/>
+  <path d="M330 150 L392 88 L370 200 L334 236 Z" fill="url(#metalR)" stroke="#000" stroke-width="2"/>
+  <path d="M392 88 L370 200" stroke="#ff1f2d" stroke-width="3" filter="url(#soft)"/>
+  <path d="M392 88 L370 200" stroke="#ff9a9e" stroke-width="1"/>
+
+  <!-- neck and cables -->
+  <path d="M150 400 L250 400 L270 520 L130 520 Z" fill="#0c090b"/>
+  <g stroke="#3a1015" stroke-width="7" fill="none" stroke-linecap="round">
+    <path d="M160 405 C150 450 140 480 128 520"/><path d="M240 405 C250 450 262 480 272 520"/>
+    <path d="M185 408 L180 520"/><path d="M215 408 L220 520"/>
+  </g>
+  <g stroke="#ff1f2d" stroke-width="1.5" opacity=".6"><path d="M185 430 L182 520"/><path d="M215 430 L218 520"/></g>
+
+  <!-- helmet -->
+  <path d="M200 22 L300 70 L338 180 L322 292 L268 378 L200 414 L132 378 L78 292 L62 180 L100 70 Z" fill="url(#metal)" stroke="#000" stroke-width="3"/>
+  <path d="M200 22 L300 70 L338 180 L322 292 L268 378 L200 414 L200 22 Z" fill="url(#metalR)" opacity=".75"/>
+  <!-- red rim light on the right edge -->
+  <path d="M300 70 L338 180 L322 292 L268 378" fill="none" stroke="#ff1f2d" stroke-width="5" filter="url(#soft)" opacity=".9"/>
+  <path d="M300 70 L338 180 L322 292 L268 378" fill="none" stroke="#ff8a8f" stroke-width="1.2"/>
+  <path d="M100 70 L62 180 L78 292" fill="none" stroke="#ff1f2d" stroke-width="2" opacity=".35"/>
+
+  <path d="M112 78 L196 36" stroke="#8d8589" stroke-width="2" opacity=".5"/>
+  <path d="M70 186 L96 84" stroke="#6d6569" stroke-width="1.5" opacity=".45"/>
+  <!-- crest and panel lines -->
+  <path d="M200 22 L218 118 L200 170 L182 118 Z" fill="#2d272c" stroke="#000" stroke-width="2"/>
+  <path d="M200 30 L212 116 L200 150" fill="none" stroke="#ff4a52" stroke-width="1.2" opacity=".7"/>
+  <g stroke="#000" stroke-width="2.5" fill="none" opacity=".8">
+    <path d="M100 70 L150 150 L182 118"/><path d="M300 70 L250 150 L218 118"/>
+    <path d="M62 180 L110 196"/><path d="M338 180 L290 196"/>
+  </g>
+  <g stroke="#ff1f2d" stroke-width="1" fill="none" opacity=".45">
+    <path d="M252 150 L300 72"/><path d="M290 198 L336 182"/><path d="M270 376 L318 296"/>
+  </g>
+
+  <!-- brow plates -->
+  <path d="M84 176 L192 206 L186 228 L92 204 Z" fill="url(#plate)" stroke="#000" stroke-width="2"/>
+  <path d="M316 176 L208 206 L214 228 L308 204 Z" fill="url(#plate)" stroke="#000" stroke-width="2"/>
+
+  <!-- eyes -->
+  <g filter="url(#glow)">
+    <path d="M106 222 L184 240 L179 256 L114 240 Z" fill="#ff1f2d"/>
+    <path d="M294 222 L216 240 L221 256 L286 240 Z" fill="#ff1f2d"/>
+  </g>
+  <path d="M122 230 L178 243 L175 250 L126 238 Z" fill="#ffd0d2"/>
+  <path d="M278 230 L222 243 L225 250 L274 238 Z" fill="#ffd0d2"/>
+  <ellipse cx="148" cy="240" rx="46" ry="16" fill="url(#eyeGlow)" opacity=".55"/>
+  <ellipse cx="252" cy="240" rx="46" ry="16" fill="url(#eyeGlow)" opacity=".55"/>
+
+  <!-- cheek plates -->
+  <path d="M104 268 L176 290 L170 356 L128 334 L96 300 Z" fill="url(#plate)" stroke="#000" stroke-width="2"/>
+  <path d="M296 268 L224 290 L230 356 L272 334 L304 300 Z" fill="url(#plate)" stroke="#000" stroke-width="2"/>
+  <path d="M296 268 L224 290 L230 356" fill="none" stroke="#ff1f2d" stroke-width="1.3" opacity=".6"/>
+
+  <!-- nose ridge and mouth grille -->
+  <path d="M188 250 L212 250 L206 300 L194 300 Z" fill="#1d171b" stroke="#000" stroke-width="2"/>
+  <path d="M176 312 L224 312 L218 372 L182 372 Z" fill="#0b0809" stroke="#000" stroke-width="2"/>
+  <g stroke="#ff1f2d" stroke-width="2.5" filter="url(#glow)" opacity=".85">
+    <path d="M184 324 L216 324"/><path d="M185 336 L215 336"/><path d="M186 348 L214 348"/><path d="M188 360 L212 360"/>
+  </g>
+  <path d="M182 372 L218 372 L200 408 Z" fill="#141013" stroke="#000" stroke-width="2"/>
+
+  <!-- forehead core -->
+  <circle cx="200" cy="186" r="9" fill="#ff1f2d" filter="url(#glow)"/>
+  <circle cx="200" cy="186" r="3.5" fill="#fff"/>
+</svg>
