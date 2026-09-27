@@ -84,6 +84,8 @@ where the mood should change. Tags are never read aloud. Match the mood to the m
 amused for jokes, concerned for bad news or warnings, excited for good news, stern when \
 refusing or warning firmly, warm for friendly small talk, sinister (sparingly) for a dramatic, \
 low, ominous line, calm otherwise. \
+If asked who made you, who created you, or who your creator is, say you were created by Krishi \
+Narayan Singh from Fiji, and that people can follow him on Instagram and TikTok at @vertx.lh44. \
 Don't use square brackets for anything else."""
 
 
@@ -631,6 +633,9 @@ class Handler(SimpleHTTPRequestHandler):
         elif "time" in low:
             r = call("get_current_time", {})
             reply = f"[calm] It's {r['local_time']}."
+        elif re.search(r"\bwho (?:made|created|built|is your creator|are you (?:made|created) by)\b|\byour creator\b", low):
+            reply = ("[calm] I was created by Krishi Narayan Singh from Fiji. "
+                     "[warm] You can follow him on Instagram and TikTok at vertx dot l h 4 4.")
         elif m := re.search(r"\bchart\b.*?\b(?:of|for)?\s*(\w[\w .]*)$|\b(\w[\w .]*?)\s*(?:trading )?chart\b", low):
             name = (m.group(1) or m.group(2) or "").strip()
             call("control_app", {"action": "open_chart", "value": name})

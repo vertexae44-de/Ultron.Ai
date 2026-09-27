@@ -41,6 +41,12 @@
   /* ---------- shell ---------- */
   .shell { position: relative; z-index: 1; height: 100%; display: grid;
     grid-template-columns: 236px minmax(0, 1fr) 320px; grid-template-rows: 68px minmax(0, 1fr); }
+  /* Fullscreen: the home/orb screen, edge to edge, no sidebar/topbar/rail. Voice still reaches
+     everything (settings, images, etc.); this is purely visual. */
+  .shell.home-full { grid-template-columns: 0 1fr 0; grid-template-rows: 0 1fr; }
+  .shell.home-full .brand, .shell.home-full #topbar, .shell.home-full #sidebar, .shell.home-full #rail, .shell.home-full #tabbar { display: none; }
+  .shell.home-full #main { grid-column: 1 / -1; grid-row: 1 / -1; }
+  .shell.home-full #homeView { padding: 24px; }
   .brand { grid-column: 1; grid-row: 1; display: flex; align-items: center; gap: 12px; padding: 0 18px;
     border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); background: rgba(8,4,5,.7); }
   .brand .wordmark { font-size: 17px; }
@@ -481,6 +487,7 @@
   }
   @media (max-width: 820px) {
     .shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: 60px minmax(0, 1fr) 62px; }
+    .shell.home-full { grid-template-rows: 0 1fr 0; }
     .brand { display: none; }
     #topbar { grid-column: 1; padding: 0 10px; gap: 6px; }
     #menuBtn { display: grid; }

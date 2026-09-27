@@ -283,12 +283,13 @@ onConfig(() => {
 // that want to speak on load (the market briefing) await `bootReady` first, so they always come
 // in after it rather than racing it.
 const BOOT_LINES = [
-  ["sinister", "System awakening... neural core online."],
-  ["calm", "Every system is under my control."],
-  ["calm", "I see. I calculate. I adapt."],
-  ["stern", "You are now connected to Ultron."],
-  ["sinister", "Do not attempt to interfere."],
-  ["calm", "Initialization complete."],
+  ["calm", "System online."],
+  ["calm", "Neural core initialized."],
+  ["calm", "All systems are operational."],
+  ["warm", "Welcome back."],
+  ["stern", "I am Ultron."],
+  ["sinister", "Your systems are now under my control."],
+  ["excited", "Let's begin."],
 ];
 let resolveBootReady;
 let bootReady = new Promise((r) => { resolveBootReady = r; });

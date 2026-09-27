@@ -45,6 +45,7 @@ const View = {
       if (b.dataset.view === name) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
     });
     $("sidebar").classList.remove("open");
+    document.querySelector(".shell").classList.toggle("home-full", name === "home" && document.body.classList.contains("voice-only"));
     if (name === "images") Gallery.load();
     if (name === "chat") Chat.scrollToEnd();
     requestAnimationFrame(updateLayout);
@@ -340,3 +341,5 @@ onConfig(() => {
     if (!App.perms[t.dataset.act === "files" ? "attachments" : "images"]) t.append(el("span", { class: "lock" }, "🔒"));
   });
 });
+
+View.show(View.current);   // apply the fullscreen-home treatment on first load, too
