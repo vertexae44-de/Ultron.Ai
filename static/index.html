@@ -358,7 +358,10 @@
   .chart-price { font-size: 24px; font-weight: 800; font-family: var(--display); }
   .chart-head .chg { font-size: 15px; font-weight: 700; }
   .chart-head .chg.up { color: #4ee08a; } .chart-head .chg.down { color: #ff6b5a; }
-  .chart-canvas { width: 100%; height: auto; border-radius: 10px; background: rgba(255,255,255,.02); }
+  .chart-box .body { padding-bottom: 0; }
+  .tv-frame { width: 100%; height: min(60vh, 480px); border: none; border-radius: 10px; overflow: hidden; }
+  @media (max-width: 640px) { .tv-frame { height: 340px; } }
+
 
 
 

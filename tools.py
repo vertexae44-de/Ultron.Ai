@@ -330,13 +330,30 @@ def _market_json(url: str, params: dict | None = None) -> dict:
         return json.load(resp)
 
 
-def _spark_crypto(coin_id: str) -> list[float]:
-    """~16-point sparkline: the last 24 hours, downsampled."""
+def _downsample_candles(candles: list[dict], target: int = 16) -> list[dict]:
+    """Merge consecutive candles down to about `target` of them: open of the first, close of the
+    last, highest high, lowest low -- a real OHLC candle, just covering a wider slice of time."""
+    if len(candles) <= target:
+        return candles
+    step = max(1, len(candles) // target)
+    out = []
+    for i in range(0, len(candles), step):
+        chunk = candles[i:i + step]
+        out.append({
+            "o": chunk[0]["o"], "c": chunk[-1]["c"],
+            "h": max(c["h"] for c in chunk), "l": min(c["l"] for c in chunk),
+        })
+    return out[-target:]
+
+
+def _candles_crypto(coin_id: str) -> list[dict]:
+    """Real OHLC candles for the last 24 hours (CoinGecko's free /ohlc endpoint: 30-minute
+    candles at this range), downsampled to about 16."""
     try:
-        data = _market_json(f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart",
+        data = _market_json(f"https://api.coingecko.com/api/v3/coins/{coin_id}/ohlc",
                              {"vs_currency": "usd", "days": "1"})
-        prices = [p[1] for p in (data.get("prices") or [])]
-        return prices[::max(1, len(prices) // 16)][-16:]
+        candles = [{"o": o, "h": h, "l": l, "c": c} for _, o, h, l, c in data]
+        return _downsample_candles(candles)
     except Exception:
         return []
 
@@ -348,23 +365,25 @@ def _fetch_trending_crypto() -> list[dict]:
         c = item.get("item") or {}
         price = ((c.get("data") or {}).get("price") or 0)
         change = ((c.get("data") or {}).get("price_change_percentage_24h") or {}).get("usd")
+        candles = _candles_crypto(c.get("id", "")) if c.get("id") else []
         out.append({
             "symbol": str(c.get("symbol") or "").upper(), "name": str(c.get("name") or ""),
             "price": round(float(price), 6) if price else None,
             "change_pct": round(float(change), 2) if change is not None else None,
-            "spark": _spark_crypto(c.get("id", "")) if c.get("id") else [],
+            "candles": candles, "spark": [c["c"] for c in candles],
         })
     return out
 
 
-def _spark_stock(symbol: str) -> list[float]:
-    """~16-point sparkline: today's session, downsampled."""
+def _candles_stock(symbol: str) -> list[dict]:
+    """Real OHLC candles for today's session (15-minute bars), downsampled to about 16."""
     try:
         data = _market_json(f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}",
                              {"range": "1d", "interval": "15m"})
-        closes = (((data.get("chart") or {}).get("result") or [{}])[0].get("indicators", {}).get("quote") or [{}])[0].get("close") or []
-        closes = [c for c in closes if c is not None]
-        return closes[::max(1, len(closes) // 16)][-16:]
+        quote = (((data.get("chart") or {}).get("result") or [{}])[0].get("indicators", {}).get("quote") or [{}])[0]
+        o, h, l, c = quote.get("open") or [], quote.get("high") or [], quote.get("low") or [], quote.get("close") or []
+        candles = [{"o": oo, "h": hh, "l": ll, "c": cc} for oo, hh, ll, cc in zip(o, h, l, c) if None not in (oo, hh, ll, cc)]
+        return _downsample_candles(candles)
     except Exception:
         return []
 
@@ -377,11 +396,12 @@ def _fetch_trending_stocks() -> list[dict]:
     quotes = _market_json("https://query1.finance.yahoo.com/v7/finance/quote", {"symbols": ",".join(symbols)})
     out = []
     for q in (quotes.get("quoteResponse") or {}).get("result", [])[:3]:
+        candles = _candles_stock(q.get("symbol", ""))
         out.append({
             "symbol": q.get("symbol", ""), "name": str(q.get("shortName") or q.get("symbol") or ""),
             "price": round(float(q["regularMarketPrice"]), 2) if q.get("regularMarketPrice") is not None else None,
             "change_pct": round(float(q["regularMarketChangePercent"]), 2) if q.get("regularMarketChangePercent") is not None else None,
-            "spark": _spark_stock(q.get("symbol", "")),
+            "candles": candles, "spark": [c["c"] for c in candles],
         })
     return out
 
