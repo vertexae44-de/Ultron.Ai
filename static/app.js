@@ -659,8 +659,15 @@ function addTimer(id, label, seconds, endsAt = Date.now() + seconds * 1000) {
     el("span", { class: "lbl" }, label ? label + " ·" : "⏱"), el("span", { class: "left" }),
     el("button", { title: "Cancel", "aria-label": "Cancel timer", onclick: () => { removeTimer(id); stopAlarm(); } }, "×"));
   $("timers").append(node);
-  timers.set(id, { label, endsAt, el: node, fired: false });
+  timers.set(id, { label, endsAt, el: node, fired: false, total: seconds || Math.max(1, (endsAt - Date.now()) / 1000) });
   saveTimers(); tickTimers();
+}
+
+// The soonest active timer, for the HUD tile.
+function nearestTimer() {
+  let best = null;
+  for (const t of timers.values()) if (!t.fired && (!best || t.endsAt < best.endsAt)) best = t;
+  return best;
 }
 
 function removeTimer(id) {

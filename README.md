@@ -13,7 +13,6 @@ pip install -r requirements.txt
 python setup_voice.py                 # one-time download of Ultron's voice (~350 MB)
 export ANTHROPIC_API_KEY=sk-ant-...   # or run `ant auth login` once
 export OPENAI_API_KEY=sk-...          # optional: turns on image generation
-export STRIPE_SECRET_KEY=sk_test_...  # optional: sell Premium (see "Premium" below)
 python server.py
 ```
 
@@ -36,6 +35,9 @@ No key yet? `python server.py --mock` runs everything with a keyword bot that st
 | **Chats** | Every conversation is saved to your account, with search, star, rename and delete. **New chat** starts fresh. |
 | **Tools** | Timers with alarms, weather (Open-Meteo, free), the current time, trending crypto and stocks (CoinGecko + Yahoo Finance, both free, no key). |
 | **Trending** | A "Trending" card in the sidebar shows the top 3 trending cryptocurrencies and top 3 trending US stocks, loaded automatically the moment Ultron opens (and refreshed every 90 seconds) -- no need to ask. It says a short spoken line about it too, once per visit, unless you turn that off in Settings. |
+| **HUD** | Four glowing ring gauges above the orb: the time, your device's battery, the local temperature (via your browser's geolocation, or `ULTRON_LOCATION`), and the nearest running timer. All update live, no asking required. |
+| **Voice-only home** | The home screen has no typing box or text transcript -- it's the orb, the HUD and the Trending sidebar, nothing else. Voice is the only way in. Saved chats still work in the background (say "open my last chat"); there's just nowhere for the text to show. |
+| **Boot sequence** | The first time you dismiss the START screen each session, Ultron speaks a short "system awakening" announcement before anything else (including the market briefing, which waits for it). Edit `BOOT_LINES` in `static/account.js` to change it. |
 | **Hands-free stays hands-free** | A voice conversation never jumps you to the text chat screen -- you stay wherever you are (home, code, wherever) and it's saved regardless; say "show the chat" to see it. Typing in the composer still opens the chat view as before. |
 
 ![animation player](docs/animation.png)
@@ -86,50 +88,21 @@ To use your own artwork, drop image files into `static/art/` with these names. A
 
 You don't need to restart; just reload the page. Any slot without a file keeps the built-in robot. The current `robot.jpg` was enlarged from a small 199×191 crop, so a full-resolution copy of the same artwork will look much sharper: save it over `static/art/robot.jpg`. Also in that folder are a 3D render (`robot-3d.jpg`) and a vector version (`robot.svg`); to use it instead, rename it to `splash.svg` / `hero.svg`, and so on.
 
-## Plans: guest, free and Premium
+## Accounts
 
-| | Guest | Free account | **Premium** ($5 a month or $45 a year) |
-|---|---|---|---|
-| Voice, chat, timers, weather, code, animations | ✓ | ✓ | ✓ |
-| Levels | 1–2 | 1–3 | **1–5** (Genius, Max) |
-| Models | Opus 5 | Opus 5, Sonnet 5 | **+ Opus 5.5** |
-| Attach files, saved chats | | ✓ | ✓ |
-| Images per 5 hours | | 5 | **50** |
+Everyone gets full access -- every level, every model, no paid tier. An account only exists to save your chats and images across visits.
 
-The server checks all of these on every request, so nobody can get around them by editing the page. To change them, edit `GUEST`, `FREE` and `PREMIUM` in `auth.py`, or set `ULTRON_IMAGE_LIMIT` and `ULTRON_PREMIUM_IMAGE_LIMIT`.
+| | Guest (not signed in) | Account |
+|---|---|---|
+| Voice, chat, timers, weather, markets, code, animations, hologram | ✓ | ✓ |
+| Levels | 1–5 (all) | 1–5 (all) |
+| Models | Opus 5, Opus 5.5, Sonnet 5 | Opus 5, Opus 5.5, Sonnet 5 |
+| Attach files | ✓ | ✓ |
+| Saved chats, image generation | | ✓ |
 
-**Without Stripe configured, there's no Premium**, and every account gets everything except the bigger image allowance (levels 1–5, all models, 5 images).
+Image generation still has a per-account rate limit (`ULTRON_IMAGE_LIMIT`, default 20 per 5 hours) -- that's a plain cost-safety default, not a paywall, since each image is a real charge to whoever runs the server's OpenAI key. Set it to `0` to remove the limit entirely.
 
 Passwords are stored hashed with scrypt and a salt. Sessions are HttpOnly cookies that last 30 days. After five wrong passwords, that username is locked for 15 minutes from the address that made them. Everything is kept under `data/`: users, sessions, chats and images, with one folder per person.
-
-## Password reset by email
-
-The log-in screen has **Forgot password?**. People enter their username or email and get a link that works once, for one hour. Following it lets them choose a new password, which signs them out on every other device. Accounts need an email address for this: there's an optional field at sign-up, and **Settings → Email** adds or changes it (it asks for the current password). People can also log in with their email instead of their username.
-
-**Safety measures:**
-- The reply is the same whether or not an account exists, so the form can't be used to discover who has an account.
-- Only a fingerprint (hash) of each link is stored.
-- Each account gets at most 3 reset emails an hour, and each network address at most 10 requests.
-
-**Setup:** point Ultron at any SMTP email service:
-
-```bash
-export SMTP_HOST=smtp.gmail.com SMTP_PORT=587
-export SMTP_USER=you@gmail.com SMTP_PASSWORD="your app password"   # Gmail: myaccount.google.com/apppasswords
-export SMTP_FROM="Ultron AI <you@gmail.com>"
-export ULTRON_PUBLIC_URL=https://your-domain                      # the address used in the emailed link
-```
-
-| Service | `SMTP_HOST` | Notes |
-|---|---|---|
-| Gmail | `smtp.gmail.com` | Needs 2-step verification and an app password. Fine for small use. |
-| Outlook / Microsoft 365 | `smtp.office365.com` | |
-| SendGrid | `smtp.sendgrid.net` | `SMTP_USER=apikey`, `SMTP_PASSWORD=` your API key |
-| Mailgun / Amazon SES / Resend / Postmark | from their dashboard | Best for a public site: verify your domain for good delivery |
-
-`SMTP_SECURITY` is `starttls` by default. Use `ssl` for port 465, or `none` for a local test inbox like Mailpit. To develop without an email service, set `ULTRON_MAIL_TO_CONSOLE=1`, and emails are printed in the terminal instead of sent.
-
-If email isn't set up, the log-in screen says to ask whoever runs the server, and they can delete the account from `data/users.json`.
 
 ## Sign in with Google and Apple
 
@@ -154,39 +127,11 @@ Set `ULTRON_PUBLIC_URL` to your site's exact address (for example `https://ultro
 
 Apple shares the person's name only the first time they sign in, and may hand over a private relay email address. Ultron handles both. If you set an invite code (`ULTRON_SIGNUP_CODE`), new Google and Apple sign-ups are turned off, because there's nowhere to type the code; existing linked accounts still work.
 
-## Premium (Stripe)
-
-![premium](docs/premium.png)
-
-People pay on Stripe's own checkout page, so card details never touch your server. They manage or cancel their subscription on Stripe's customer portal ("Manage subscription" in the account menu).
-
-**One-time setup** (start in Stripe *test mode*, where card `4242 4242 4242 4242` always succeeds):
-
-1. Get your secret key from dashboard.stripe.com → Developers → API keys, then create the product and prices:
-   ```bash
-   export STRIPE_SECRET_KEY=sk_test_...
-   python setup_stripe.py                 # $5/month and $45/year; change with --monthly / --yearly / --currency
-   ```
-2. In the Stripe dashboard, open **Settings → Billing → Customer portal** and press **Save** once. This turns on the portal.
-3. Set up **webhooks**. These keep Premium in sync with renewals, cancellations and failed payments.
-   - On your own computer, install the Stripe CLI and run `stripe listen --forward-to localhost:8765/api/stripe/webhook`. Put the `whsec_...` it prints in `STRIPE_WEBHOOK_SECRET`.
-   - On a real server, go to Developers → Webhooks → Add endpoint, use `https://YOUR-DOMAIN/api/stripe/webhook`, and pick the events `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated` and `customer.subscription.deleted`. Put its signing secret in `STRIPE_WEBHOOK_SECRET`.
-4. Start Ultron. It prints `Premium: $5.00/month, $45.00/year` when everything is found.
-
-**How it stays correct:**
-- Premium switches on as soon as someone returns from checkout. Ultron confirms the payment with Stripe directly, even before the webhook arrives.
-- A cancelled subscription stays Premium until the end of the paid period.
-- A failed renewal keeps Premium while Stripe retries the card. If Stripe gives up, the account goes back to free.
-- If a webhook is ever missed, Ultron checks with Stripe itself once a paid period has ended.
-- Webhooks are verified with your signing secret, and forged ones are rejected.
-
-When you're ready to charge real money, switch to your live key (`sk_live_...`), run `setup_stripe.py` again, create a live webhook endpoint, and set `ULTRON_PUBLIC_URL=https://your-domain`. You're responsible for your own terms, refunds and taxes; Stripe Tax can handle the taxes.
-
 ## Sharing it with other people
 
 By default Ultron only listens on your own computer. To let others use it:
 
-1. **Protect your API bill.** Everyone who uses Ultron spends your Anthropic (and OpenAI) credit, including guests and free accounts. Set `ULTRON_SIGNUP_CODE=something-secret` so only people you give the code to can sign up, or set `ULTRON_SIGNUP=closed` after creating accounts.
+1. **Protect your API bill.** Everyone who uses Ultron spends your Anthropic (and OpenAI) credit, including guests -- and there's no paid tier to offset it. Set `ULTRON_SIGNUP_CODE=something-secret` so only people you give the code to can sign up, set `ULTRON_SIGNUP=closed` after creating accounts, and keep `ULTRON_IMAGE_LIMIT` sane (images cost real money per call).
 2. **Use HTTPS.** Put it behind a reverse proxy such as Caddy or nginx, start it with `--host 0.0.0.0`, and set `ULTRON_SECURE_COOKIES=1`. Without HTTPS, passwords travel unencrypted.
 
 ## Configuration
@@ -203,12 +148,9 @@ By default Ultron only listens on your own computer. To let others use it:
 | `OPENAI_API_KEY` | *(unset)* | Turns on image generation |
 | `OPENAI_IMAGE_MODEL` | `gpt-image-2` | OpenAI image model |
 | `OPENAI_IMAGE_QUALITY` | `medium` | `low` / `medium` / `high` (higher costs more) |
-| `ULTRON_IMAGE_LIMIT` / `ULTRON_PREMIUM_IMAGE_LIMIT` | `5` / `50` | Images per window, free and Premium |
+| `ULTRON_IMAGE_LIMIT` | `20` | Images per account per window; a cost-safety default, not a paywall. `0` removes it |
 | `ULTRON_IMAGE_WINDOW_HOURS` | `5` | Length of the rolling image window |
-| `STRIPE_SECRET_KEY` | *(unset)* | Turns on Premium |
-| `STRIPE_WEBHOOK_SECRET` | *(unset)* | Verifies Stripe webhooks |
-| `STRIPE_PRICE_MONTHLY` / `STRIPE_PRICE_YEARLY` | *(unset)* | Use your own price IDs instead of the ones `setup_stripe.py` makes |
-| `ULTRON_PUBLIC_URL` | *(from the request)* | Your site's address, used for Stripe's return links and the Google/Apple redirect addresses |
+| `ULTRON_PUBLIC_URL` | *(from the request)* | Your site's address, used for the Google/Apple redirect addresses |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` / `SMTP_FROM` / `SMTP_SECURITY` | *(unset)* / `587` / … / `starttls` | Email for password resets |
 | `ULTRON_MAIL_TO_CONSOLE` | *(unset)* | `1` prints emails in the terminal instead (for development) |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | *(unset)* | Turns on Sign in with Google |

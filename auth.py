@@ -24,46 +24,27 @@ SIGNUP_CODE = os.environ.get("ULTRON_SIGNUP_CODE", "")  # if set, sign-up requir
 SIGNUP_OPEN = os.environ.get("ULTRON_SIGNUP", "open") != "closed"
 USERNAME_RE = re.compile(r"^[A-Za-z0-9_.-]{3,32}$")
 
-# What each plan may do. Change these to taste. "models" is "default" (the
-# server's default model only), "all", or a list of model ids.
-FREE_IMAGES = int(os.environ.get("ULTRON_IMAGE_LIMIT", "5"))
-PREMIUM_IMAGES = int(os.environ.get("ULTRON_PREMIUM_IMAGE_LIMIT", "50"))
+# Everyone gets full access -- every level, every model, no paid tier. The only thing an
+# account is for is saving your chats and images across visits, since that needs somewhere to
+# store them. "models" is "default" (the server's default model only), "all", or a list of ids.
+#
+# Image generation still has a per-account rate limit, but it's not a paywall: it's a plain
+# cost-safety default, since each image is a real charge to whoever runs this server's OpenAI
+# key. Raise or remove it with ULTRON_IMAGE_LIMIT (0 removes the limit entirely).
+IMAGE_LIMIT = int(os.environ.get("ULTRON_IMAGE_LIMIT", "20"))
 GUEST = {
-    "plan": "guest", "max_effort": "medium",        # levels 1-2
-    "attachments": False, "images": False, "image_limit": 0, "saved_chats": False, "models": "default",
+    "plan": "guest", "max_effort": "max",
+    "attachments": True, "images": False, "image_limit": 0, "saved_chats": False, "models": "all",
 }
-FREE = {
-    "plan": "free", "max_effort": "high",           # levels 1-3
-    "attachments": True, "images": True, "image_limit": FREE_IMAGES, "saved_chats": True,
-    "models": ["claude-opus-5", "claude-sonnet-5"],
+MEMBER = {
+    "plan": "member", "max_effort": "max",
+    "attachments": True, "images": True, "image_limit": IMAGE_LIMIT, "saved_chats": True, "models": "all",
 }
-PREMIUM = {
-    "plan": "premium", "max_effort": "max",         # levels 1-5
-    "attachments": True, "images": True, "image_limit": PREMIUM_IMAGES, "saved_chats": True, "models": "all",
-}
-# Without Stripe there's nothing to upgrade to, so accounts get everything except the bigger image allowance.
-MEMBER = {**PREMIUM, "plan": "member", "image_limit": FREE_IMAGES}
 EFFORTS = ("low", "medium", "high", "xhigh", "max")
-PREMIUM_STATUSES = ("active", "trialing", "past_due")   # past_due: Stripe is still retrying the card
-GRACE_SECONDS = 3 * 86400                                # if a renewal webhook never arrives
 
 
-def plan_of(record: dict | None) -> str | None:
-    """"premium" or "free" for an account (None for guests)."""
-    if not record:
-        return None
-    end = record.get("sub_period_end")
-    if record.get("sub_status") in PREMIUM_STATUSES and (not end or end + GRACE_SECONDS > time.time()):
-        return "premium"
-    return "free"
-
-
-def perms_for(user: dict | None, billing_enabled: bool) -> dict:
-    if not user:
-        return GUEST
-    if not billing_enabled:
-        return MEMBER
-    return PREMIUM if user.get("plan") == "premium" else FREE
+def perms_for(user: dict | None) -> dict:
+    return MEMBER if user else GUEST
 
 
 def model_allowed(model: str, perms: dict, default: str) -> bool:
@@ -332,9 +313,7 @@ def user_for_token(token: str | None) -> dict | None:
 
 def public(user: dict) -> dict:
     return {
-        "id": user["id"], "username": user["username"], "name": user["name"], "plan": plan_of(user),
-        "renews": user.get("sub_period_end"), "cancels": bool(user.get("sub_cancel_at_period_end")),
-        "interval": user.get("sub_interval"), "has_billing": bool(user.get("stripe_customer")),
+        "id": user["id"], "username": user["username"], "name": user["name"],
         "email": user.get("email"), "has_password": bool(user.get("hash")),
         "via": "google" if user.get("google_sub") else "apple" if user.get("apple_sub") else "password",
     }

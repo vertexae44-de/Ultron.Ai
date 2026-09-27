@@ -34,6 +34,7 @@ const TEXT_EXT = /\.(txt|md|markdown|csv|tsv|json|jsonl|xml|ya?ml|toml|ini|cfg|c
 const View = {
   current: "home",
   show(name) {
+    if (name === "chat") name = "home";   // voice-only: never show the text transcript
     const ids = { home: "homeView", chat: "chatView", images: "imagesView" };
     if (!ids[name]) return;
     this.current = name;
@@ -267,12 +268,7 @@ async function videoBlocks(file) {
   const showLevel = () => { const l = LEVELS[Composer.levelNum() - 1]; $("levelLabel").textContent = `${Composer.levelNum()} · ${l.name}`; };
   lv.addEventListener("change", () => {
     const max = LEVELS.findIndex(l => l.effort === App.perms.max_effort) + 1;
-    if (Composer.levelNum() > max) {
-      const want = LEVELS[Composer.levelNum() - 1];
-      lv.value = String(max);
-      if (!App.user) Account.open("signup", `use levels ${max + 1} to ${LEVELS.length}`);
-      else Premium.open(`use level ${LEVELS.indexOf(want) + 1} (${want.name})`);
-    }
+    if (Composer.levelNum() > max) lv.value = String(max);   // shouldn't happen now everyone gets max_effort
     store.set("level", Composer.levelNum()); showLevel(); renderLive();
   });
   showLevel();
@@ -300,9 +296,8 @@ function modelAllowed(id) {
   const m = App.perms.models;
   return id === App.config?.default_model || m === "all" || (Array.isArray(m) && m.includes(id));
 }
-function askForModel(m) {           // explain why a model is locked
-  if (!App.user) Account.open("signup", "choose the model");
-  else Premium.open(`use ${m.label}`);
+function askForModel(m) {           // there's no locked model anymore, but keep a safe fallback
+  toast(`Couldn't switch to ${m.label}.`);
 }
 function syncModels() {
   const c = App.config;
@@ -311,34 +306,26 @@ function syncModels() {
   if (!sel.options.length) for (const m of c.models) sel.append(el("option", { value: m.id }, m.label));
   for (const o of sel.options) {
     const m = c.models.find(x => x.id === o.value);
-    o.disabled = !modelAllowed(o.value);
-    o.textContent = m.label + (o.disabled ? (App.user ? "  👑 Premium" : "  🔒") : "");
+    o.textContent = m.label;
   }
   const saved = store.get("model", null);
   if (!sel.dataset.init) { sel.value = c.models.some(m => m.id === saved) ? saved : c.default_model; sel.dataset.init = "1"; }
-  if (!modelAllowed(sel.value)) sel.value = c.default_model;
-  const onlyDefault = c.models.every(m => m.id === c.default_model || !modelAllowed(m.id));
-  sel.disabled = !App.user && onlyDefault;
-  $("modelBox").classList.toggle("locked", sel.disabled);
-  $("modelBox").title = sel.disabled ? "Sign up to choose the model" : "Model";
   $("modelLabel").textContent = (c.models.find(m => m.id === sel.value) || {}).label || sel.value;
   const list = $("modelList");
   list.replaceChildren(...c.models.map(m => el("li", {},
     el("button", { class: "item", type: "button", onclick: () => {
-      if (!modelAllowed(m.id)) { askForModel(m); return; }
       sel.value = m.id; store.set("model", m.id); syncModels(); toast(`Model: ${m.label}`);
     } },
       el("span", { class: "ic" }, frag(icon("model"))),
       el("span", { class: "tx" }, el("span", { class: "t" }, m.label), el("span", { class: "s" }, MODEL_BLURBS[m.id] || "Claude model")),
       m.id === sel.value ? el("span", { class: "badge" }, "Selected")
-        : !modelAllowed(m.id) ? el("span", { class: "badge" }, App.user ? "👑 Premium" : "🔒")
         : m.id === c.default_model ? el("span", { class: "badge" }, "Default") : null))));
 }
 
 onConfig(() => {
   const max = LEVELS.findIndex(l => l.effort === App.perms.max_effort) + 1;
   [...$("level").options].forEach((o, i) => {
-    o.textContent = `${i + 1} · ${LEVELS[i].name} — ${i < max ? LEVELS[i].tip : App.user ? "👑 Premium" : "🔒 sign up"}`;
+    o.textContent = `${i + 1} · ${LEVELS[i].name} — ${LEVELS[i].tip}`;
   });
   if (Composer.levelNum() > max) { $("level").value = String(max); }
   $("levelLabel").textContent = `${Composer.levelNum()} · ${LEVELS[Composer.levelNum() - 1].name}`;

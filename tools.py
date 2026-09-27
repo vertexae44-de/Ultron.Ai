@@ -177,7 +177,6 @@ APP_ACTIONS = {
     "log_in": "show the log-in screen",
     "sign_up": "show the sign-up screen",
     "log_out": "log the user out",
-    "open_premium": "show the Premium plans",
     "wake_word": "value = on or off",
     "clap": "clap to wake; value = off, single or double",
     "follow_up": "listen for a reply after speaking without the wake word; value = on or off",
@@ -199,8 +198,7 @@ TOOLS.append({
         "Operate the Ultron app on the user's screen. Use it whenever the user asks you to open, show, "
         "switch, change or turn something on or off in the app. Actions: "
         + "; ".join(f"{k}: {v}" for k, v in APP_ACTIONS.items())
-        + ". Confirm in a few spoken words afterwards. Locked features (a level or model above the user's "
-        "plan) show an upgrade screen instead; just say so."
+        + ". Confirm in a few spoken words afterwards."
     ),
     "input_schema": {
         "type": "object",
@@ -329,6 +327,17 @@ def _market_json(url: str, params: dict | None = None) -> dict:
         return json.load(resp)
 
 
+def _spark_crypto(coin_id: str) -> list[float]:
+    """~16-point sparkline: the last 24 hours, downsampled."""
+    try:
+        data = _market_json(f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart",
+                             {"vs_currency": "usd", "days": "1"})
+        prices = [p[1] for p in (data.get("prices") or [])]
+        return prices[::max(1, len(prices) // 16)][-16:]
+    except Exception:
+        return []
+
+
 def _fetch_trending_crypto() -> list[dict]:
     data = _market_json("https://api.coingecko.com/api/v3/search/trending")
     out = []
@@ -340,8 +349,21 @@ def _fetch_trending_crypto() -> list[dict]:
             "symbol": str(c.get("symbol") or "").upper(), "name": str(c.get("name") or ""),
             "price": round(float(price), 6) if price else None,
             "change_pct": round(float(change), 2) if change is not None else None,
+            "spark": _spark_crypto(c.get("id", "")) if c.get("id") else [],
         })
     return out
+
+
+def _spark_stock(symbol: str) -> list[float]:
+    """~16-point sparkline: today's session, downsampled."""
+    try:
+        data = _market_json(f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}",
+                             {"range": "1d", "interval": "15m"})
+        closes = (((data.get("chart") or {}).get("result") or [{}])[0].get("indicators", {}).get("quote") or [{}])[0].get("close") or []
+        closes = [c for c in closes if c is not None]
+        return closes[::max(1, len(closes) // 16)][-16:]
+    except Exception:
+        return []
 
 
 def _fetch_trending_stocks() -> list[dict]:
@@ -356,6 +378,7 @@ def _fetch_trending_stocks() -> list[dict]:
             "symbol": q.get("symbol", ""), "name": str(q.get("shortName") or q.get("symbol") or ""),
             "price": round(float(q["regularMarketPrice"]), 2) if q.get("regularMarketPrice") is not None else None,
             "change_pct": round(float(q["regularMarketChangePercent"]), 2) if q.get("regularMarketChangePercent") is not None else None,
+            "spark": _spark_stock(q.get("symbol", "")),
         })
     return out
 
@@ -437,6 +460,32 @@ def geocode(location: str) -> dict:
             if any(h in str(r.get(k, "")).lower() for k in ("country", "country_code", "admin1", "admin2")):
                 return r
     return results[0]  # sorted by population/relevance
+
+
+def home_weather(lat, lon, units: str) -> dict:
+    """Current temperature and conditions for a HUD tile: given coordinates (the browser's own
+    geolocation) if we have them, otherwise ULTRON_LOCATION, otherwise an error the client just
+    hides the tile for."""
+    imperial = units == "imperial"
+    if lat is not None and lon is not None:
+        latitude, longitude, place = lat, lon, ""
+    else:
+        if not HOME_LOCATION:
+            raise ToolError("No location available.")
+        p = geocode(HOME_LOCATION)
+        latitude, longitude, place = p["latitude"], p["longitude"], p.get("name", "")
+    data = _http_json("https://api.open-meteo.com/v1/forecast", {
+        "latitude": latitude, "longitude": longitude, "timezone": "auto",
+        "current": "temperature_2m,weather_code",
+        "temperature_unit": "fahrenheit" if imperial else "celsius",
+    })
+    cur = data.get("current") or {}
+    return {
+        "temperature": round(cur.get("temperature_2m", 0)),
+        "unit": "F" if imperial else "C",
+        "conditions": WEATHER_CODES.get(cur.get("weather_code"), "unknown"),
+        "place": place,
+    }
 
 
 def _get_weather(args, ctx):
@@ -529,8 +578,9 @@ def _read_code_editor(args, ctx):
 # ---------- images (OpenAI) ----------
 
 class ImageQuota:
-    """At most `limit` images per rolling `window` seconds, persisted across restarts.
-    The limit comes from the user's plan, so upgrading takes effect immediately."""
+    """At most `limit` images per rolling `window` seconds, persisted across restarts. This is a
+    plain cost-safety default (each image is a real API charge), not a paywall -- everyone gets
+    the same limit, set by ULTRON_IMAGE_LIMIT (0 removes it)."""
 
     def __init__(self, path: Path, window_s: float):
         self.path, self.window = path, window_s
@@ -550,9 +600,11 @@ class ImageQuota:
         tmp.replace(self.path)
 
     def reserve(self, limit: int, upgrade_hint: str = "") -> float:
-        """Claim a slot or raise ToolError saying when the next one frees up."""
+        """Claim a slot or raise ToolError saying when the next one frees up. limit <= 0 means unlimited."""
         with self.lock:
             now = time.time()
+            if limit <= 0:
+                return now
             stamps = self._load(now)
             if len(stamps) >= limit:
                 wait = stamps[len(stamps) - limit] + self.window - now
@@ -570,6 +622,8 @@ class ImageQuota:
             self._save([t for t in self._load(now) if t != stamp])
 
     def remaining(self, limit: int) -> int:
+        if limit <= 0:
+            return -1   # -1 signals "unlimited" to the client
         with self.lock:
             return max(0, limit - len(self._load(time.time())))
 
@@ -637,8 +691,7 @@ def create_image(prompt: str, shape: str, ctx) -> dict:
     import openai
 
     quota, limit = quota_for(ctx.user["id"]), ctx.perms.get("image_limit", 0)
-    hint = " Mention that Premium raises the limit." if ctx.perms.get("plan") == "free" else ""
-    stamp = quota.reserve(limit, hint)
+    stamp = quota.reserve(limit, "")
     try:
         resp = client.images.generate(
             model=IMAGE_MODEL, prompt=prompt.strip()[:4000], size=IMAGE_SIZES[shape], quality=IMAGE_QUALITY, n=1

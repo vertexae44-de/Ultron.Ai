@@ -1,7 +1,6 @@
 "use strict";
-// Accounts (sign up, log in, the user menu), the splash screen, the greeting,
-// settings, and "sign up to unlock" prompts. The server enforces every limit;
-// this only explains them.
+// Accounts (sign up, log in, the user menu), the splash screen, the greeting, and settings.
+// There's no paid tier: an account just lets you save chats and images across visits.
 
 const ICON_USER = '<svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>';
 const ICON_LOCK = '<svg class="i" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
@@ -14,10 +13,10 @@ const ICON_MAIL = '<svg class="i" viewBox="0 0 24 24"><rect x="3" y="5" width="1
 const ICON_EYE = '<svg class="i" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
 
 const Account = {
-  // True if allowed; otherwise explains why and offers sign-up (guests) or Premium (members).
+  // True if allowed; otherwise opens sign-up (the only thing gating attachments, images and saved chats).
   require(reason, perm) {
     if (App.perms[perm]) return true;
-    if (!App.user) this.open("signup", reason); else Premium.open(reason);
+    this.open("signup", reason);
     return false;
   },
 
@@ -46,7 +45,7 @@ const Account = {
         el("h2", { class: "wordmark" }, "ULTRON ", el("b", {}, "AI")),
         el("p", { class: "sub" }, signup ? "Create your account" : "Welcome back"),
         reason ? el("div", { class: "perks" }, "Sign up to ", el("b", {}, reason),
-          ". A free account also unlocks saved chats, file attachments, image generation and levels 3 to 5.") : null,
+          ". A free account also unlocks saved chats, file attachments and image generation.") : null,
         signup && !open ? el("p", { class: "form-error" }, "Sign-up is closed on this server.") : form,
         ...providerButtons(),
         el("p", { class: "swap" }, signup ? "Already have an account? " : "Don't have an account? ",
@@ -70,7 +69,6 @@ const Account = {
       Modal.close();
       await loadConfig();
       toast(signup ? `Welcome to Ultron, ${body.user.name}.` : `Welcome back, ${body.user.name}.`);
-      if (Premium.pending) { Premium.pending = false; Premium.open(); }
     } catch { err.textContent = "Can't reach the server."; }
     finally { button.disabled = false; }
   },
@@ -174,10 +172,6 @@ const Account = {
           el("button", { class: "pill", onclick: () => Voice.showHelp() }, "Show")),
         check("Start screen", "Show the START screen when Ultron opens.", store.get("splash", true), (v) => store.set("splash", v)),
         el("label", { class: "opt" }, el("span", {}, "Voice", el("small", {}, c.tts === "kokoro" ? "Ultron’s neural voice, generated on the server" : "Your browser's built-in voice")), el("span", {})),
-        App.user && c.billing?.enabled ? el("label", { class: "opt" }, el("span", {}, "Plan", el("small", {}, planLine())),
-          App.user.plan === "premium" || App.user.has_billing
-            ? el("button", { class: "pill", onclick: () => Premium.manage() }, "Manage subscription")
-            : el("button", { class: "pill primary", onclick: () => Premium.open() }, "Go Premium")) : null,
         App.user ? el("label", { class: "opt" }, el("span", {}, "Email", el("small", {}, App.user.email || "Not set. Add one so you can reset your password.")),
           el("button", { class: "pill", onclick: () => this.changeEmail() }, App.user.email ? "Change" : "Add")) : null,
         el("label", { class: "opt" }, el("span", {}, "Account", el("small", {}, App.user
@@ -192,41 +186,25 @@ const Account = {
     if (!u) {
       box.replaceChildren(el("button", { class: "pill", "data-act": "login" }, "Log in"), el("button", { class: "pill primary", "data-act": "signup" }, "Sign up"));
     } else {
-      const billingOn = App.config.billing?.enabled, premium = u.plan === "premium";
       const chip = el("button", { class: "userchip", "aria-label": "Account menu", onclick: () => openMenu(chip, [
         { note: `Signed in as @${u.username}` },
-        billingOn && !premium ? { label: "👑 Upgrade to Premium", run: () => Premium.open() } : null,
-        billingOn && (premium || u.has_billing) ? { label: "Manage subscription", run: () => Premium.manage() } : null,
         { label: "Settings", run: () => this.settings() },
         { label: "Log out", danger: true, run: () => this.logout() },
-      ].filter(Boolean)) }, el("span", { class: "avatar" + (premium ? " gold" : "") }, (u.name || u.username)[0].toUpperCase()),
+      ]) }, el("span", { class: "avatar" }, (u.name || u.username)[0].toUpperCase()),
         el("span", { class: "tx" }, el("span", { class: "nm", style: "display:block" }, u.name),
-          el("span", { class: "pl" + (premium ? " prem" : "") }, premium ? "👑 Premium" : billingOn ? "Free plan" : "Member")),
+          el("span", { class: "pl" }, "Member")),
         frag('<svg class="i" viewBox="0 0 24 24" style="width:16px;height:16px;color:var(--dim)"><path d="m6 9 6 6 6-6"/></svg>'));
       box.replaceChildren(chip);
     }
     const h = new Date().getHours();
     $("greeting").textContent = (h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening") + (u ? `, ${u.name}` : "");
     renderUpsell();
-    const card = $("sideCard"), img = App.config.images, billingOn = App.config.billing?.enabled;
-    const credits = () => img.enabled ? [el("div", { class: "meter" }, el("i", { style: `width:${img.limit ? (img.left / img.limit) * 100 : 0}%` })),
-      el("p", {}, `${img.left} of ${img.limit} images left · refills over ${img.window_hours} hours`)] : [];
-    if (u && u.plan === "premium" && billingOn) {
-      card.replaceChildren(el("span", { class: "spaced gold-text" }, "👑 Premium"),
-        el("h3", {}, u.interval === "year" ? "Yearly plan" : "Monthly plan"), el("p", {}, planLine()), ...credits(),
-        el("button", { class: "pill", style: "width:100%;justify-content:center", onclick: () => Premium.manage() }, "Manage subscription"));
-    } else if (u && billingOn) {
-      card.replaceChildren(el("span", { class: "spaced", style: "color:var(--red)" }, "👑 Premium"),
-        el("h3", {}, "Upgrade to Premium"), el("p", {}, `${img.premium_limit} images every ${img.window_hours} hours, Genius and Max levels, and Opus 5.5.`),
-        ...credits(),
-        el("button", { class: "pill primary", style: "width:100%;justify-content:center", onclick: () => Premium.open() }, "Go Premium"));
-    } else if (u && img.enabled) {
+    const card = $("sideCard"), img = App.config.images;
+    const credits = () => img.enabled ? [el("div", { class: "meter" }, el("i", { style: `width:${img.limit > 0 ? (img.left / img.limit) * 100 : 100}%` })),
+      el("p", {}, img.limit > 0 ? `${img.left} of ${img.limit} images left · refills over ${img.window_hours} hours` : "Unlimited images")] : [];
+    if (u && img.enabled) {
       card.replaceChildren(el("span", { class: "spaced", style: "color:var(--red)" }, "Image credits"),
-        el("h3", {}, `${img.left} of ${img.limit} left`), ...credits());
-    } else if (!u) {
-      card.replaceChildren(el("span", { class: "spaced", style: "color:var(--red)" }, "Free account"),
-        el("h3", {}, "Unlock everything"), el("p", {}, "Images, files, saved chats and levels 3 to 5."),
-        el("button", { class: "pill primary", "data-act": "signup", style: "width:100%;justify-content:center" }, "Sign up free"));
+        el("h3", {}, img.limit > 0 ? `${img.left} of ${img.limit} left` : "Unlimited"), ...credits());
     }
   },
 };
@@ -245,7 +223,7 @@ const emailOn = () => !!App.config?.email?.enabled;
 // "Continue with Google / Apple", shown only for providers the server has configured.
 function providerButtons() {
   const o = App.config?.oauth || {};
-  const go = (p) => { if (Premium.pending) try { sessionStorage.setItem("ultron.premiumAfterAuth", "1"); } catch {} location.href = "/auth/" + p; };
+  const go = (p) => { location.href = "/auth/" + p; };
   const btns = [
     o.google ? el("button", { type: "button", class: "social", onclick: () => go("google") }, frag(LOGO_GOOGLE), "Continue with Google") : null,
     o.apple ? el("button", { type: "button", class: "social", onclick: () => go("apple") }, frag(LOGO_APPLE), "Continue with Apple") : null,
@@ -263,112 +241,19 @@ function handleAuthReturn() {
   history.replaceState(null, "", location.pathname);
   if (err) { toast(err, 6000); Account.open("login"); return; }
   if (App.user) toast(`Welcome, ${App.user.name}.`);
-  let again = false;
-  try { again = sessionStorage.getItem("ultron.premiumAfterAuth") === "1"; sessionStorage.removeItem("ultron.premiumAfterAuth"); } catch {}
-  if (again) Premium.open();
 }
 
-function planLine() {
-  const u = App.user;
-  if (!u || u.plan !== "premium") return u?.has_billing ? "Free plan (subscription ended)" : "Free plan";
-  if (!u.renews) return "Premium";
-  const d = new Date(u.renews * 1000).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
-  return u.cancels ? `Premium until ${d} (won't renew)` : `Renews ${d}`;
-}
-
-// The home page banner: sign up (guests) or go Premium (free accounts).
+// The home page banner: sign up to unlock saved chats, attachments and image generation.
 function renderUpsell() {
-  const box = $("upsell"), u = App.user, c = App.config, billingOn = c.billing?.enabled;
-  const show = !u || (billingOn && u.plan !== "premium");
-  box.hidden = !show;
-  if (!show) return;
-  const [title, text, btn, perks] = !u
-    ? ["UNLOCK THE FULL POWER", "Create a free account to save your chats, attach files, generate images and use smarter levels.",
-       el("button", { class: "pill primary", "data-act": "signup" }, "Create free account"),
-       ["Image generation", billingOn ? "Levels 1 to 3" : "Levels 1 to 5 and model choice", "Pictures, PDFs, files and videos", "Saved chat history"]]
-    : ["UNLOCK THE FULL POWER", "Get more images, premium models, the smartest levels and more.",
-       el("button", { class: "pill primary", onclick: () => Premium.open() }, frag(ICON_CROWN), "Upgrade to Premium"),
-       [`${c.images.premium_limit} images every ${c.images.window_hours} hours`, "Genius and Max levels", "Opus 5.5, the newest model", "Everything in the free plan"]];
+  const box = $("upsell"), u = App.user;
+  box.hidden = !!u;
+  if (u) return;
   box.replaceChildren(
-    el("div", {}, el("h3", {}, el("b", {}, title[0]), title.slice(1)), el("p", {}, text), btn),
-    el("ul", {}, perks.map(p => el("li", {}, p))));
+    el("div", {}, el("h3", {}, el("b", {}, "UNLOCK THE FULL POWER"), " OF ULTRON AI"),
+      el("p", {}, "Create a free account to save your chats, attach files and generate images."),
+      el("button", { class: "pill primary", "data-act": "signup" }, "Create free account")),
+    el("ul", {}, ["Image generation", "Pictures, PDFs, files and videos", "Saved chat history"].map(p => el("li", {}, p))));
 }
-
-// ---------- Premium (Stripe) ----------
-const Premium = {
-  pending: false,   // "Subscribe" pressed while logged out: reopen after sign-up
-
-  open(reason = "") {
-    const c = App.config;
-    if (!c?.billing?.enabled) { toast("Premium isn't available on this server."); return; }
-    if (App.user?.plan === "premium") { this.manage(); return; }
-    const img = c.images, plans = c.billing.plans;
-    const names = { monthly: "Monthly", yearly: "Yearly" }, per = { month: "/ month", year: "/ year" };
-    const cards = plans.map(p => {
-      const btn = el("button", { class: p.id === "monthly" ? "btn" : "btn ghost", onclick: () => this.subscribe(p.id, btn) }, "Subscribe");
-      return el("div", { class: "plan" }, p.save ? el("span", { class: "save" }, p.save) : null,
-        el("div", { class: "nm" }, names[p.id] || p.id), el("div", { class: "amt" }, p.price), el("div", { class: "per" }, per[p.interval] || ""), btn);
-    });
-    Modal.open(el("div", { class: "box premium", role: "dialog", "aria-label": "Go Premium" },
-      el("div", { class: "auth" },
-        el("div", { class: "crown" }, frag(ICON_CROWN)),
-        el("h2", { style: "margin:0;font-size:24px" }, "Go Premium"),
-        el("p", { class: "sub" }, "Unlock the full power of Ultron AI"),
-        reason ? el("div", { class: "perks" }, "Premium lets you ", el("b", {}, reason), ".") : null,
-        el("ul", { class: "checks" },
-          el("li", {}, `${img.premium_limit} images every ${img.window_hours} hours (free: ${img.free_limit})`),
-          el("li", {}, "Levels 4 and 5: Genius and Max reasoning"),
-          el("li", {}, "Opus 5.5, the newest model"),
-          el("li", {}, "Everything in the free plan")),
-        cards.length ? el("div", { class: "plans" }, cards)
-          : el("p", { class: "form-error" }, "Prices aren't set up yet. The server owner needs to run setup_stripe.py."),
-        el("p", { class: "swap", style: "font-size:12.5px" }, "Cancel anytime. Secure payment by Stripe."))));
-  },
-
-  async subscribe(plan, btn) {
-    if (!App.user) { this.pending = true; Account.open("signup", "go Premium"); return; }
-    btn.disabled = true; btn.textContent = "Opening Stripe…";
-    try {
-      const res = await fetch("/api/billing/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plan }) });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error);
-      location.href = body.url;
-    } catch (err) {
-      toast(err.message || "Couldn't reach Stripe.", 5000);
-      btn.disabled = false; btn.textContent = "Subscribe";
-    }
-  },
-
-  async manage() {
-    try {
-      const res = await fetch("/api/billing/portal", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error);
-      location.href = body.url;
-    } catch (err) { toast(err.message || "Couldn't reach Stripe.", 5000); }
-  },
-
-  // Back from Stripe Checkout: confirm right away instead of waiting for the webhook.
-  async handleReturn() {
-    const q = new URLSearchParams(location.search), result = q.get("billing");
-    if (!result) return;
-    history.replaceState(null, "", location.pathname);
-    if (result === "cancel") { toast("Checkout cancelled. You weren't charged."); return; }
-    if (result !== "success" || !App.user) return;
-    let plan = null;
-    try {
-      const res = await fetch("/api/billing/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ session_id: q.get("session_id") }) });
-      plan = (await res.json()).plan;
-    } catch {}
-    for (let i = 0; i < 5 && plan !== "premium"; i++) {         // the webhook may land a moment later
-      await new Promise(r => setTimeout(r, 2000));
-      await loadConfig(); plan = App.user?.plan;
-    }
-    await loadConfig();
-    if (plan === "premium") { toast("Welcome to Premium 👑", 5000); flare = 2; }
-    else toast("Payment received. Premium will switch on in a moment.", 6000);
-  },
-};
 
 // Artwork: static/art/<slot>.jpg (etc.) if present, otherwise the built-in robot.
 function applyArt() {
@@ -389,14 +274,36 @@ function applyArt() {
 let returnHandled = false;
 onConfig(() => {
   Account.render();
-  if (!returnHandled) { returnHandled = true; Premium.handleReturn(); handleAuthReturn(); }
+  if (!returnHandled) { returnHandled = true; handleAuthReturn(); }
 });
+
+// ---------- boot sequence ----------
+// Ultron's startup announcement, spoken once when the START screen is dismissed. Other things
+// that want to speak on load (the market briefing) await `bootReady` first, so they always come
+// in after it rather than racing it.
+const BOOT_LINES = [
+  ["sinister", "System awakening... neural core online."],
+  ["calm", "Every system is under my control."],
+  ["calm", "I see. I calculate. I adapt."],
+  ["stern", "You are now connected to Ultron."],
+  ["sinister", "Do not attempt to interfere."],
+  ["calm", "Initialization complete."],
+];
+let resolveBootReady;
+let bootReady = new Promise((r) => { resolveBootReady = r; });
+
+function runBootSequence() {
+  for (const [mood, line] of BOOT_LINES) speak(line, mood);
+  // Resolve once the last line has actually finished, not just been queued.
+  const check = () => { if (!playing && !speechQueue.length) resolveBootReady(); else setTimeout(check, 200); };
+  setTimeout(check, 200);
+}
 
 // ---------- splash ----------
 (() => {
   let seen = false;
   try { seen = sessionStorage.getItem("ultron.splash") === "1"; } catch {}
-  if (seen || !store.get("splash", true) || /[?&](billing|auth|auth_error|reset)=/.test(location.search)) return;
+  if (seen || !store.get("splash", true) || /[?&](auth|auth_error|reset)=/.test(location.search)) { resolveBootReady(); return; }
   const s = $("splash");
   s.hidden = false;
   $("startBtn").focus();
@@ -404,5 +311,6 @@ onConfig(() => {
     try { sessionStorage.setItem("ultron.splash", "1"); getAudioCtx(); } catch {}
     s.classList.add("leaving");
     setTimeout(() => { s.hidden = true; $("text").focus(); }, 500);
+    runBootSequence();
   });
 })();

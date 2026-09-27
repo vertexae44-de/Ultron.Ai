@@ -68,7 +68,6 @@ const COMMANDS = [
   [/^(?:log ?in|sign ?in|let me log in|let me sign in)$/, () => Voice.run("log_in")],
   [/^(?:sign ?up|create (?:an |my )?account|register|make (?:an |me an )?account)$/, () => Voice.run("sign_up")],
   [/^(?:log ?out|sign ?out|log me out|sign me out)$/, () => Voice.run("log_out")],
-  [/^(?:upgrade|go premium|get premium|(?:open |show )?(?:the )?premium(?: plans?)?|(?:show )?(?:the )?plans)$/, () => Voice.run("open_premium")],
   [/^(?:go to sleep|stop listening|sleep|turn off (?:the )?wake word|wake word off|disable (?:the )?wake word)$/, () => Voice.run("wake_word", "off")],
   [/^(?:turn on (?:the )?wake word|wake word on|enable (?:the )?wake word)$/, () => Voice.run("wake_word", "on")],
   [/^(?:turn |switch )?(on|off) (?:the )?clap(?:ping)?(?: detection| to wake)?$/, (m) => Voice.run("clap", m[1] === "on" ? "double" : "off")],
@@ -116,7 +115,7 @@ const VOICE_HELP = [
   ["Talking", "“Ultron …” or two claps, then speak. After a reply, just answer — no wake word needed."],
   ["Stop", "“stop”, “quiet”, “never mind” (“Ultron, stop” while it's talking)"],
   ["Chats", "“new chat”, “open my chats”, “open my last chat”, “open the chat about …”"],
-  ["Screens", "“go home”, “show the gallery”, “open settings”, “go premium”, “close”"],
+  ["Screens", "“go home”, “show the gallery”, “open settings”, “close”"],
   ["Code", "“open the code editor”, “run it”, “stop the code”, “close the editor”"],
   ["Animations", "“make an animation of …”, “replay”, “record it”"],
   ["Smarts", "“level four”, “genius mode”, “think harder”, “use Sonnet”, “what level am I on”"],
@@ -202,14 +201,13 @@ const Voice = {
         if (n === Composer.levelNum()) return `Already on level ${n}.`;
         $("level").value = String(n);
         $("level").dispatchEvent(new Event("change"));      // shows the upgrade screen if locked
-        return Composer.levelNum() === n ? `Level ${n}, ${LEVELS[n - 1].name}.`
-          : App.user ? `Level ${n} is a Premium feature.` : `Sign up to unlock level ${n}.`;
+        return Composer.levelNum() === n ? `Level ${n}, ${LEVELS[n - 1].name}.` : `Couldn't switch to level ${n}.`;
       }
       case "set_model": {
         const id = modelFor(value) || value;
         const m = App.config?.models?.find(x => x.id === id);
         if (!m) return "I don't know that model.";
-        if (!modelAllowed(m.id)) { askForModel(m); return App.user ? `${m.label} is a Premium feature.` : `Sign up to choose ${m.label}.`; }
+        if (!modelAllowed(m.id)) { askForModel(m); return `Couldn't switch to ${m.label}.`; }
         $("model").value = m.id; store.set("model", m.id); syncModels();
         return `Switched to ${m.label}.`;
       }
@@ -223,7 +221,6 @@ const Voice = {
             el("div", { class: "row" }, el("button", { class: "pill", onclick: () => Modal.close() }, "Cancel"), el("span", { class: "spacer" }),
               el("button", { class: "pill primary", autofocus: true, onclick: () => { Modal.close(); Account.logout(); } }, "Log out")))));
         return "Log out? Say yes or no.";
-      case "open_premium": Premium.open(); return App.user?.plan === "premium" ? "You're already Premium." : "Here are the plans.";
       case "wake_word": {
         const on = value !== "off";
         setWake(on);

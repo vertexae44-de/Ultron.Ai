@@ -26,8 +26,8 @@ const Chat = {
     this.log.push(entry);
     if (!this.title) this.title = (text || meta.map(f => f.name).join(", ")).slice(0, 60) || "New chat";
     $("chatTitle").textContent = this.title;
-    // Voice conversations stay wherever you are -- home, code, wherever -- instead of jumping
-    // to the text transcript. It's all still saved (and rendered into it); say "show the chat" to see it.
+    // A voice conversation stays on the orb -- home, code, wherever you were -- instead of
+    // jumping to the text transcript. It's still saved; say "show the chat" to see it.
     if (switchView) View.show("chat");
     this.render(entry);
     this.sealed = 0;
@@ -238,6 +238,14 @@ $("topSearch").addEventListener("keydown", (e) => { if (e.key === "Enter") { Cha
 onConfig(() => Chats.refresh());
 
 // ---------- markets: trending crypto and stocks, loaded on startup (no chat, no voice needed) ----------
+// A tiny inline sparkline for a market row: no library, just a normalised polyline.
+function sparkSVG(points, up) {
+  if (!points || points.length < 2) return el("span", { class: "spark" });
+  const lo = Math.min(...points), hi = Math.max(...points), span = hi - lo || 1;
+  const pts = points.map((v, i) => `${(i / (points.length - 1) * 100).toFixed(1)},${(20 - (v - lo) / span * 18 - 1).toFixed(1)}`).join(" ");
+  return frag(`<svg class="spark ${up === false ? "down" : "up"}" viewBox="0 0 100 20" preserveAspectRatio="none"><polyline points="${pts}"/></svg>`);
+}
+
 const Markets = {
   interval: null,
 
@@ -268,6 +276,7 @@ const Markets = {
       return el("li", { class: "row" },
         el("span", { class: "sym" }, (c.symbol || c.name || "?").slice(0, 4)),
         el("span", { class: "tx" }, el("span", { class: "name" }, c.name || c.symbol), el("span", { class: "kind" }, c.kind)),
+        sparkSVG(c.spark, up),
         el("span", { class: "num" },
           el("span", { class: "price" }, c.price == null ? "—" : (c.kind === "Crypto" && c.price < 1 ? "$" + c.price : "$" + c.price.toLocaleString())),
           up === null ? null : el("span", { class: "chg " + (up ? "up" : "down") }, (up ? "▲ " : "▼ ") + Math.abs(c.change_pct) + "%")));
@@ -293,7 +302,7 @@ const Markets = {
   try { brand = !sessionStorage.getItem("ultron.marketBrief"); sessionStorage.setItem("ultron.marketBrief", "1"); } catch {}
   if (brand && data && store.get("marketBrief", true)) {
     const line = Markets.briefLine(data);
-    if (line) { voiceTurn = false; speak(line, "calm"); }
+    if (line) { await bootReady; voiceTurn = false; speak(line, "calm"); }
   }
 })();
 
@@ -323,8 +332,8 @@ const Gallery = {
       return;
     }
     q.textContent = !c.images.enabled ? "Image generation isn't set up on this server (it needs an OpenAI API key)."
-      : `${c.images.left} of ${c.images.limit} images left · the limit resets over a rolling ${c.images.window_hours}-hour window`
-        + (c.billing?.enabled && App.user.plan !== "premium" ? ` · Premium gets ${c.images.premium_limit}` : "");
+      : c.images.limit > 0 ? `${c.images.left} of ${c.images.limit} images left · the limit resets over a rolling ${c.images.window_hours}-hour window`
+      : "Unlimited images.";
     try {
       const items = await (await fetch("/api/images")).json();
       g.replaceChildren(...(items.length ? items.map(i => el("figure", { onclick: () => Media.showImage(i.url, i.prompt) },

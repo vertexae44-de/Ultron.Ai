@@ -96,12 +96,12 @@
   .card-box > header svg { color: var(--red); }
   .link { background: none; border: 0; color: var(--red); font-size: 12.5px; padding: 0; }
   .list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-  .list.markets .row { display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 8px; }
+  .list.markets .row { display: flex; align-items: center; gap: 6px; padding: 7px 6px; border-radius: 8px; }
   .list.markets .row:hover { background: var(--panel-2); }
-  .list.markets .sym { width: 26px; height: 26px; border-radius: 7px; background: var(--panel-2); border: 1px solid var(--line);
+  .list.markets .sym { width: 22px; height: 22px; border-radius: 7px; background: var(--panel-2); border: 1px solid var(--line); font-size: 9px;
     display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; flex: none; }
   .list.markets .tx { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-  .list.markets .name { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .list.markets .name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 78px; }
   .list.markets .kind { font-size: 10.5px; color: var(--dim); text-transform: uppercase; letter-spacing: .04em; }
   .list.markets .num { text-align: right; flex: none; }
   .list.markets .price { font-size: 12.5px; font-weight: 700; display: block; }
@@ -311,6 +311,33 @@
   .gesture-thumb { width: 44px; height: 33px; border-radius: 8px; object-fit: cover; transform: scaleX(-1); background: #000; }
   .gesture-label { font-size: 12px; color: var(--dim); white-space: nowrap; }
   .gesture-panel .icon-btn { width: 22px; height: 22px; font-size: 14px; }
+  body.voice-only #composer, body.voice-only .chips, body.voice-only [data-view="chat"],
+  body.voice-only [data-act="chat"], body.voice-only .actions,
+  body.voice-only .hero .wordmark, body.voice-only .hero .spaced, body.voice-only .greet,
+  body.voice-only #upsell { display: none !important; }
+  body.voice-only .hero { justify-content: center; gap: 18px; }
+  /* ---------- HUD strip: clock, battery, temperature, timer ---------- */
+  .hud-row { display: flex; justify-content: center; gap: 22px; flex-wrap: wrap; margin: 4px 0 2px; }
+  .gauge { width: 92px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .gauge svg { width: 76px; height: 76px; transform: rotate(-90deg); filter: drop-shadow(0 0 6px var(--glow)); }
+  .gauge .track { fill: none; stroke: rgba(255,40,55,.15); stroke-width: 5; }
+  .gauge .fill { fill: none; stroke: var(--red); stroke-width: 5; stroke-linecap: round; transition: stroke-dashoffset .5s ease; }
+  .gauge .ring-wrap { position: relative; width: 76px; height: 76px; }
+  .gauge .val { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    flex-direction: column; font-family: var(--display); }
+  .gauge .val b { font-size: 15px; font-weight: 800; line-height: 1; color: #fff; letter-spacing: .01em; }
+  .gauge .val small { font-size: 8.5px; color: var(--dim); letter-spacing: .04em; margin-top: 2px; }
+  .gauge .lbl { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+  .gauge.charging .fill { stroke: #4ee08a; }
+  .gauge.warn .fill { stroke: #ffb020; }
+  .gauge.low .fill { stroke: var(--danger); }
+  @media (max-width: 900px) { .hud-row { gap: 12px; } .gauge { width: 72px; } .gauge svg, .gauge .ring-wrap { width: 60px; height: 60px; } .gauge .val b { font-size: 12px; } }
+  /* ---------- Trending sparkline ---------- */
+  .list.markets .spark { width: 38px; height: 20px; flex: none; margin: 0 2px; }
+  .list.markets .spark polyline { fill: none; stroke-width: 1.6; }
+  .list.markets .spark.up polyline { stroke: #4ee08a; }
+  .list.markets .spark.down polyline { stroke: #ff6b5a; }
+
   #hologramView { position: fixed; inset: 0; z-index: 80; background: radial-gradient(ellipse at 50% 40%, rgba(90,10,16,.35), #030102 70%); }
   body.hologram-open .gesture-panel { bottom: 76px; }   /* stay clear of the hologram's own hint bar */
   .hologram-head { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 14px;
@@ -339,25 +366,6 @@
   #splash .bl { left: 56px; bottom: 40px; text-align: left; color: #b21420; }
   #splash.leaving { animation: fadeout .5s forwards; }
   @keyframes fadeout { to { opacity: 0; visibility: hidden; } }
-  .premium .crown { width: 60px; height: 60px; border-radius: 50%; margin: 0 auto 12px; display: grid; place-items: center;
-    color: #ffc44d; border: 1px solid rgba(255,196,77,.5); background: radial-gradient(circle, rgba(255,120,40,.25), rgba(40,0,5,.6));
-    box-shadow: 0 0 24px rgba(255,120,40,.35); }
-  .premium .crown svg { width: 30px; height: 30px; }
-  .checks { list-style: none; margin: 4px 0 16px; padding: 0; text-align: left; display: grid; gap: 9px; font-size: 14px; }
-  .checks li { display: flex; gap: 10px; align-items: center; }
-  .checks li::before { content: "✓"; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; flex: none;
-    background: var(--red); color: #fff; font-size: 12px; font-weight: 700; }
-  .plans { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 6px 0 4px; }
-  .plan { position: relative; border: 1px solid var(--line-strong); border-radius: 14px; padding: 16px 14px 14px; text-align: left;
-    background: rgba(255,255,255,.02); display: flex; flex-direction: column; gap: 2px; }
-  .plan .nm { color: var(--dim); font-size: 13px; }
-  .plan .amt { font-size: 28px; font-weight: 700; color: var(--red); line-height: 1.2; }
-  .plan .per { color: var(--dim); font-size: 12.5px; margin-bottom: 12px; }
-  .plan .save { position: absolute; top: -10px; right: 10px; background: var(--red); color: #fff; font-size: 11px; font-weight: 700;
-    padding: 2px 8px; border-radius: 99px; }
-  .btn.ghost { background: transparent; border: 1px solid var(--red); color: #fff; box-shadow: none; }
-  .avatar.gold { background: radial-gradient(circle at 35% 30%, #ffd36b, #c46a00); color: #2a1300; box-shadow: 0 0 12px rgba(255,180,60,.5); }
-  .userchip .pl.prem, .gold-text { color: #ffc44d !important; }
   #toast { position: fixed; left: 50%; top: 78px; transform: translateX(-50%); background: var(--panel-2); border: 1px solid var(--line-strong);
     border-radius: 10px; padding: 9px 16px; z-index: 90; font-size: 14px; box-shadow: 0 8px 30px rgba(0,0,0,.6); }
 
@@ -463,7 +471,7 @@
   }
 </style>
 </head>
-<body>
+<body class="voice-only">
 <canvas id="orb"></canvas>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -530,6 +538,7 @@
   <main id="main">
     <section class="view active" id="homeView" aria-label="Home">
       <div class="art hero-art" aria-hidden="true"></div>
+      <div class="hud-row" id="hudRow" aria-label="Status"></div>
       <div class="hero">
         <div class="orb-slot" title="Click to talk"></div>
         <h1 class="wordmark">ULTRON <b>AI</b></h1>
@@ -677,6 +686,7 @@
 <script src="app.js"></script>
 <script src="code.js"></script>
 <script src="composer.js"></script>
+<script src="hud.js"></script>
 <script src="chats.js"></script>
 <script src="account.js"></script>
 <script src="voice.js"></script>

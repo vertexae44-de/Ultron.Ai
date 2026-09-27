@@ -25,7 +25,6 @@ import anthropic
 import urllib.parse
 
 import auth
-import billing
 import mailer
 import oauth
 import tools
@@ -108,10 +107,7 @@ class Handler(SimpleHTTPRequestHandler):
         """(user or None, permissions) for this request."""
         if not hasattr(self, "_who"):
             user = auth.user_for_token(self.token)
-            if user and user.get("renews") and user["renews"] < time.time():
-                billing.refresh_if_stale(user["id"])      # a paid period ended: still subscribed?
-                user = auth.user_for_token(self.token)
-            self._who = (user, auth.perms_for(user, billing.enabled()))
+            self._who = (user, auth.perms_for(user))
         return self._who
 
     def base_url(self) -> str:
@@ -154,11 +150,8 @@ class Handler(SimpleHTTPRequestHandler):
                     "enabled": tools.images_enabled(),
                     "left": tools.quota_for(user["id"]).remaining(perms["image_limit"]) if user else 0,
                     "limit": perms["image_limit"],
-                    "free_limit": auth.FREE_IMAGES,
-                    "premium_limit": auth.PREMIUM_IMAGES,
                     "window_hours": tools.IMAGE_WINDOW_HOURS,
                 },
-                "billing": {"enabled": billing.enabled(), "plans": billing.plans_for_page() if billing.enabled() else []},
             })
         elif path == "/api/chats":
             if user := self._need_user():
@@ -168,6 +161,16 @@ class Handler(SimpleHTTPRequestHandler):
                 self._send_json(tools.list_images(user["id"]))
         elif path == "/api/markets":
             self._send_json(tools.market_trends())
+        elif path.startswith("/api/weather/home"):
+            q = dict(urllib.parse.parse_qsl(self.path.partition("?")[2]))
+            try:
+                lat, lon = (float(q["lat"]), float(q["lon"])) if "lat" in q and "lon" in q else (None, None)
+            except ValueError:
+                lat, lon = None, None
+            try:
+                self._send_json(tools.home_weather(lat, lon, q.get("units", "metric")))
+            except tools.ToolError as e:
+                self._send_json({"error": str(e)}, HTTPStatus.BAD_REQUEST)
         elif path.startswith("/api/chats/"):
             if user := self._need_user():
                 chat = _load_chat(user["id"], path.rsplit("/", 1)[1], touch=True)
@@ -194,11 +197,7 @@ class Handler(SimpleHTTPRequestHandler):
         if not self.headers.get("Content-Type", "").startswith("application/json"):
             self.send_error(HTTPStatus.UNSUPPORTED_MEDIA_TYPE, "expected application/json")
             return
-        if path == "/api/stripe/webhook":
-            self._stripe_webhook()
-        elif path in ("/api/billing/checkout", "/api/billing/portal", "/api/billing/sync"):
-            self._billing(path.rsplit("/", 1)[1])
-        elif path in ("/api/signup", "/api/login", "/api/logout"):
+        if path in ("/api/signup", "/api/login", "/api/logout"):
             self._account(path.rsplit("/", 1)[1])
         elif path in ("/api/password/forgot", "/api/password/reset"):
             self._password(path.rsplit("/", 1)[1])
@@ -323,7 +322,7 @@ class Handler(SimpleHTTPRequestHandler):
             found = auth.start_reset(body.get("login"))
             if found:
                 user, token = found
-                link = f"{billing.PUBLIC_URL or oauth.PUBLIC_URL or self.base_url()}/?reset={token}"
+                link = f"{oauth.PUBLIC_URL or self.base_url()}/?reset={token}"
                 mailer.send_later(user["email"], "Reset your Ultron AI password", *_reset_email(user["name"], link))
                 self.log_message("password reset email queued for %s", user["username"])
             # Same answer either way, so this can't be used to discover accounts.
@@ -377,50 +376,6 @@ class Handler(SimpleHTTPRequestHandler):
         self.log_message("%s sign-in: %s", provider, user["username"])
         secure = SECURE_COOKIES or self.headers.get("X-Forwarded-Proto") == "https"
         self._redirect("/?auth=" + provider, [clear, auth.cookie_header(auth.create_session(user["id"]), secure)])
-
-    # ---------- billing ----------
-
-    def _billing(self, action: str):
-        user = self._need_user()
-        if not user:
-            return
-        if not billing.enabled():
-            self._send_json({"error": "Premium isn't set up on this server."}, HTTPStatus.BAD_REQUEST)
-            return
-        try:
-            body = self._read_json()
-            if action == "checkout":
-                plan = body.get("plan")
-                if plan not in billing.LOOKUP_KEYS:
-                    raise billing.BillingError("Choose monthly or yearly.")
-                self._send_json({"url": billing.checkout_url(user["id"], plan, self.base_url())})
-            elif action == "portal":
-                self._send_json({"url": billing.portal_url(user["id"], self.base_url())})
-            else:
-                self._send_json({"plan": billing.sync_checkout(user["id"], body.get("session_id"))})
-        except billing.BillingError as e:
-            self._send_json({"error": str(e)}, HTTPStatus.BAD_REQUEST)
-        except (ValueError, TypeError):
-            self._send_json({"error": "Bad request."}, HTTPStatus.BAD_REQUEST)
-
-    def _stripe_webhook(self):
-        length = int(self.headers.get("Content-Length", 0))
-        if length <= 0 or length > 1024 * 1024 or not billing.enabled():
-            self.send_error(HTTPStatus.BAD_REQUEST)
-            return
-        payload = self.rfile.read(length)
-        try:
-            kind = billing.handle_webhook(payload, self.headers.get("Stripe-Signature"))
-        except billing.BillingError as e:
-            self.log_error("stripe webhook: %s", e)
-            self.send_error(HTTPStatus.SERVICE_UNAVAILABLE, str(e))
-            return
-        except Exception as e:  # bad signature or payload: tell Stripe it failed so it retries/alerts
-            self.log_error("stripe webhook rejected: %s", type(e).__name__)
-            self.send_error(HTTPStatus.BAD_REQUEST, "invalid webhook")
-            return
-        self.log_message("stripe webhook: %s", kind)
-        self._send_json({"received": True})
 
     # ---------- chat storage ----------
 
@@ -640,8 +595,8 @@ class Handler(SimpleHTTPRequestHandler):
             known = what in ("cube", "sphere", "torus", "cone", "pyramid", "cylinder", "diamond", "core", "image")
             reply = (f"[excited] Projecting {what}. Spread your hands to grow it." if known
                      else f"[excited] Generating {what} to project. Spread your hands to grow it once it loads.")
-        elif m := re.search(r"\b(?:show|open)\b.*\b(gallery|settings|premium)\b", low):
-            action = {"gallery": "show_images", "settings": "open_settings", "premium": "open_premium"}[m[1]]
+        elif m := re.search(r"\b(?:show|open)\b.*\b(gallery|settings)\b", low):
+            action = {"gallery": "show_images", "settings": "open_settings"}[m[1]]
             call("control_app", {"action": action})
             reply = f"[calm] Done. {m[1].capitalize()} is open."
         elif re.search(r"\banimat", low):
@@ -855,14 +810,6 @@ def main():
     if tools.HOME_LOCATION:
         print(f"Home location for weather: {tools.HOME_LOCATION}")
     print("Image generation:", f"on ({tools.IMAGE_MODEL})" if tools.images_enabled() else "off (set OPENAI_API_KEY to enable)")
-    if billing.enabled():
-        plans = billing.plans_for_page()
-        print("Premium:", ", ".join(f"{p['price']}/{p['interval']}" for p in plans) if plans
-              else "Stripe key set, but no prices found. Run `python setup_stripe.py`.")
-        if not billing.WEBHOOK_SECRET:
-            print("  Note: STRIPE_WEBHOOK_SECRET isn't set, so renewals and cancellations won't sync automatically.")
-    else:
-        print("Premium: off (set STRIPE_SECRET_KEY to sell Premium; accounts get everything meanwhile)")
     print("Sign-up:", "closed" if not auth.SIGNUP_OPEN else "invite code required" if auth.SIGNUP_CODE else "open",
           "· Google:", "on" if oauth.enabled("google") else "off", "· Apple:", "on" if oauth.enabled("apple") else "off")
     print("Password reset email:", ("on (printing emails here)" if not mailer.HOST else f"on via {mailer.HOST}")
