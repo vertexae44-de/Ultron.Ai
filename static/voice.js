@@ -276,6 +276,7 @@ const Voice = {
         if (Player.recordBtn.disabled) return "Already recording.";
         Player.record(); return `Recording ${Player.seconds} seconds.`;
       case "close":
+        if (!$("chartView").hidden) { Markets.closeChart(); return ""; }
         if (!$("ytView").hidden) { YouTube.close(); return ""; }
         if (Hologram.active) { Hologram.close(); return ""; }
         if (document.querySelector(".menu")) { closeMenus(); return ""; }

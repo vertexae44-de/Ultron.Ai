@@ -716,6 +716,8 @@ const toggleTalk = () => recPhase === "command" ? rec.stop() : listen();
 document.querySelectorAll(".orb-slot").forEach(s => s.addEventListener("click", toggleTalk));
 $("wake").addEventListener("click", (e) => { e.currentTarget.blur(); setWake(!wakeEnabled); });
 addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !$("chartView").hidden) { Markets.closeChart(); return; }
+  if (e.key === "Escape" && !$("ytView").hidden) { YouTube.close(); return; }
   if (e.key === "Escape" && Modal.isOpen) { Modal.close(); return; }
   if (e.key === "Escape" && document.querySelector(".menu")) { closeMenus(); return; }
   const tag = document.activeElement?.tagName;

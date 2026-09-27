@@ -368,6 +368,11 @@
   #hologramView { position: fixed; inset: 0; z-index: 80; background: radial-gradient(ellipse at 50% 40%, rgba(90,10,16,.35), #030102 70%); }
   #ytView { position: fixed; inset: 0; z-index: 80; background: #000; display: flex; flex-direction: column; }
   #ytView #ytFrame, #ytView iframe { flex: 1; width: 100%; height: 100%; border: none; }
+  #chartView { position: fixed; inset: 0; z-index: 80; background: #0a0a0a; display: flex; flex-direction: column; }
+  #chartView .tv-frame { flex: 1; width: 100%; height: 100%; border: none; }
+  #chartView .hologram-head { position: static; background: #0e0e0e; border-bottom: 1px solid var(--line); }
+  #chartView .chart-head { display: flex; align-items: baseline; gap: 10px; margin: 0; flex: 1; }
+  #chartView .chart-price { font-size: 17px; }
   body.yt-open .gesture-panel { bottom: 76px; }
 
   body.hologram-open .gesture-panel { bottom: 76px; }   /* stay clear of the hologram's own hint bar */
@@ -729,6 +734,15 @@
     <button class="icon-btn" id="closeYT" aria-label="Close">×</button>
   </div>
   <div id="ytFrame"></div>
+</div>
+
+<div id="chartView" hidden aria-label="Trading chart" role="dialog">
+  <div class="hologram-head">
+    <h2 id="chartTitle">Chart</h2>
+    <div class="chart-head" id="chartHead"></div>
+    <button class="icon-btn" id="closeChart" aria-label="Close">×</button>
+  </div>
+  <iframe id="chartFrame" class="tv-frame" frameborder="0" allowtransparency="true" scrolling="no"></iframe>
 </div>
 <div id="dropzone" hidden>Drop files to attach</div>
 <div id="toast" hidden role="status"></div>

@@ -230,6 +230,7 @@ const Chats = {
   },
 };
 
+$("closeChart")?.addEventListener("click", () => Markets.closeChart());
 $("newChatBtn").addEventListener("click", () => { Chats.closeDrawer(); Chat.reset(); });
 $("closeChats").addEventListener("click", () => Chats.closeDrawer());
 $("chatSearch").addEventListener("input", () => Chats.render());
@@ -282,23 +283,23 @@ const Markets = {
     if (!row) return `I don't have a chart for ${query || "that"} right now -- it isn't in today's trending list.`;
     const up = row.change_pct == null ? null : row.change_pct >= 0;
     const symbol = this.tvSymbol(row);
-    const iframe = el("iframe", {
-      class: "tv-frame", frameborder: "0", allowtransparency: "true", scrolling: "no",
-      title: row.name + " live chart",
-      src: `https://s.tradingview.com/widgetembed/?symbol=${encodeURIComponent(symbol)}&interval=15&theme=dark&style=1&locale=en&hidevolume=0&hidelegend=0&hide_top_toolbar=0&hide_side_toolbar=0&withdateranges=1&studies=%5B%5D`,
-    });
-    const box = el("div", { class: "box wide chart-box", role: "dialog", "aria-label": row.name + " chart" },
-      el("header", {},
-        el("h2", {}, row.name, el("span", { class: "muted", style: "color:var(--dim);font-size:13px;margin-left:8px" }, row.kind)),
-        el("button", { class: "icon-btn", "aria-label": "Close", onclick: () => Modal.close() }, "×")),
-      el("div", { class: "body" },
-        el("div", { class: "chart-head" },
-          el("span", { class: "chart-price" }, row.price == null ? "—" : "$" + row.price.toLocaleString()),
-          up === null ? null : el("span", { class: "chg " + (up ? "up" : "down") }, (up ? "▲ " : "▼ ") + Math.abs(row.change_pct) + "%"),
-          el("span", { class: "muted", style: "color:var(--dim);font-size:11px;margin-left:auto" }, "Live · TradingView")),
-        iframe));
-    Modal.open(box);
+    Modal.close();
+    $("chartTitle").textContent = `${row.name} · ${row.kind}`;
+    $("chartHead").replaceChildren(
+      el("span", { class: "chart-price" }, row.price == null ? "—" : "$" + row.price.toLocaleString()),
+      up === null ? null : el("span", { class: "chg " + (up ? "up" : "down") }, (up ? "▲ " : "▼ ") + Math.abs(row.change_pct) + "%"),
+      el("span", { class: "muted", style: "color:var(--dim);font-size:11px" }, "Live · TradingView"));
+    $("chartFrame").title = row.name + " live chart";
+    $("chartFrame").src = `https://s.tradingview.com/widgetembed/?symbol=${encodeURIComponent(symbol)}&interval=15&theme=dark&style=1&locale=en&hidevolume=0&hidelegend=0&hide_top_toolbar=0&hide_side_toolbar=0&withdateranges=1&studies=%5B%5D`;
+    $("chartView").hidden = false;
+    document.body.classList.add("chart-open");
     return "";
+  },
+
+  closeChart() {
+    $("chartView").hidden = true;
+    document.body.classList.remove("chart-open");
+    $("chartFrame").src = "about:blank";   // stop the live stream while it's closed
   },
 
   render(data) {
