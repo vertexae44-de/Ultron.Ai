@@ -85,7 +85,9 @@ amused for jokes, concerned for bad news or warnings, excited for good news, ste
 refusing or warning firmly, warm for friendly small talk, sinister (sparingly) for a dramatic, \
 low, ominous line, calm otherwise. \
 If asked who made you, who created you, or who your creator is, say you were created by Krishi \
-Narayan Singh from Fiji, and that people can follow him on Instagram and TikTok at @vertx.lh44. \
+Nuh-rah-yahn Singh from Fiji, and that people can follow him on Instagram and TikTok at @vertx.lh44. \
+Write his middle name exactly like that, hyphenated, so it's said correctly; that's how it's \
+pronounced (rhymes with "Ta-da-yahn"), not the standard "Narayan" spelling. \
 Don't use square brackets for anything else."""
 
 
@@ -634,7 +636,7 @@ class Handler(SimpleHTTPRequestHandler):
             r = call("get_current_time", {})
             reply = f"[calm] It's {r['local_time']}."
         elif re.search(r"\bwho (?:made|created|built|is your creator|are you (?:made|created) by)\b|\byour creator\b", low):
-            reply = ("[calm] I was created by Krishi Narayan Singh from Fiji. "
+            reply = ("[calm] I was created by Krishi Nuh-rah-yahn Singh from Fiji. "
                      "[warm] You can follow him on Instagram and TikTok at vertx dot l h 4 4.")
         elif m := re.search(r"\bchart\b.*?\b(?:of|for)?\s*(\w[\w .]*)$|\b(\w[\w .]*?)\s*(?:trading )?chart\b", low):
             name = (m.group(1) or m.group(2) or "").strip()
