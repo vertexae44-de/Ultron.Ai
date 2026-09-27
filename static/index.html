@@ -323,6 +323,7 @@
   body.voice-only #upsell { display: none !important; }
   body.voice-only .hero { justify-content: center; gap: 18px; flex: 1; min-height: 0; }
   body.voice-only .orb-slot { height: clamp(280px, 56vh, 560px); }
+  body.voice-only .jarvis .orb-slot { height: clamp(380px, 74vh, 780px); }
   /* ---------- HUD strip: clock, battery, temperature, timer ---------- */
   .hud-row { display: flex; justify-content: center; gap: 22px; flex-wrap: wrap; margin: 4px 0 2px; }
   .gauge { width: 92px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
@@ -537,9 +538,8 @@
   .j-core-caption { font-size: 11px; letter-spacing: .1em; color: var(--fg); margin-top: 4px; }
   .j-center .live { z-index: 1; }
 
-  .j-mini { position: absolute; width: 148px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 9px 11px; z-index: 2; }
+  .j-mini { position: static; width: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 9px 11px; z-index: 2; }
   .j-mini h5 { margin: 0 0 6px; font-size: 8.5px; letter-spacing: .1em; color: var(--dim); text-transform: uppercase; font-weight: 600; }
-  .j-mini-a { top: 0; left: 0; } .j-mini-b { top: 0; right: 0; } .j-mini-c { bottom: 0; left: 0; } .j-mini-d { bottom: 0; right: 0; }
   .j-mini-a div { display: flex; align-items: baseline; gap: 6px; }
   .j-mini-a b { font-size: 20px; font-weight: 800; }
   .j-mini-a span { font-size: 9px; color: var(--dim); }
@@ -583,18 +583,16 @@
 
   @media (max-width: 1180px) {
     body.voice-only .jarvis { grid-template-columns: 200px 1fr 200px; }
-    .j-mini { width: 120px; }
   }
   @media (max-width: 900px) {
     body.voice-only .jarvis { grid-template-columns: 1fr; grid-template-areas: "top" "center" "bottom"; }
-    .j-col.j-left, .j-col.j-right, .j-mini-c, .j-mini-d { display: none; }
+    .j-col.j-left, .j-col.j-right { display: none; }
     .j-quote { display: none; }
   }
   @media (max-width: 640px) {
     body.voice-only .jarvis { gap: 8px; }
     .j-top { flex-wrap: wrap; padding: 8px 12px; gap: 8px; }
     .j-sysstat, .j-clock { margin-left: 0; }
-    .j-mini-a, .j-mini-b { display: none; }
     .j-bottom > span:first-child, .j-bottom .j-wave { display: none; }
   }
 
@@ -641,9 +639,9 @@
     background: repeating-linear-gradient(180deg, var(--red) 0 4px, transparent 4px 8px); }
 
   .j-core-label, .j-core-caption { letter-spacing: .18em; }
-  .j-center::before { content: ""; position: absolute; width: min(72vh, 640px); height: min(72vh, 640px); border-radius: 50%;
+  .j-center::before { content: ""; position: absolute; width: min(88vh, 820px); height: min(88vh, 820px); border-radius: 50%;
     border: 1px dashed rgba(255,40,55,.3); pointer-events: none; animation: j-spin 40s linear infinite; }
-  .j-center::after { content: ""; position: absolute; width: min(56vh, 500px); height: min(56vh, 500px); border-radius: 50%;
+  .j-center::after { content: ""; position: absolute; width: min(70vh, 660px); height: min(70vh, 660px); border-radius: 50%;
     border: 1px solid rgba(255,40,55,.18); pointer-events: none; animation: j-spin 26s linear infinite reverse; }
   @keyframes j-spin { to { transform: rotate(360deg); } }
 
@@ -857,29 +855,18 @@
             <div class="j-loc"><canvas id="jLocMap" width="54" height="54"></canvas>
               <div><b id="jLocName">Locating&hellip;</b><span id="jLocCoord">--</span></div></div>
           </div>
-        </aside>
-
-        <div class="j-center">
           <div class="j-mini j-mini-a">
             <h5>CORE TEMP</h5>
             <div><b id="jTemp">--°</b><span id="jTempCond">--</span></div>
-          </div>
-          <div class="j-mini j-mini-b">
-            <h5>SYSTEM LOAD</h5>
-            <div class="ring-wrap j-loadring"><svg viewBox="0 0 60 60"><circle class="track" cx="30" cy="30" r="26"/><circle class="fill" cx="30" cy="30" r="26" id="jLoadRing"/></svg>
-              <div class="val"><b id="jLoadPct">--%</b></div></div>
           </div>
           <div class="j-mini j-mini-c">
             <h5>PROCESSING&hellip;</h5>
             <canvas id="jProcWave" width="140" height="40"></canvas>
             <ul id="jProcList"></ul>
           </div>
-          <div class="j-mini j-mini-d">
-            <h5>NETWORK TRAFFIC</h5>
-            <canvas id="jTrafficWave" width="140" height="40"></canvas>
-            <div><span id="jUp">↑ --</span><span id="jDown">↓ --</span></div>
-          </div>
+        </aside>
 
+        <div class="j-center">
           <div class="j-core-label">ULTRON CORE<span>NEURAL PROCESSOR</span></div>
           <div class="orb-slot" title="Click to talk"></div>
           <div class="live" aria-live="polite"></div>
@@ -887,6 +874,16 @@
         </div>
 
         <aside class="j-col j-right">
+          <div class="j-mini j-mini-b">
+            <h5>SYSTEM LOAD</h5>
+            <div class="ring-wrap j-loadring"><svg viewBox="0 0 60 60"><circle class="track" cx="30" cy="30" r="26"/><circle class="fill" cx="30" cy="30" r="26" id="jLoadRing"/></svg>
+              <div class="val"><b id="jLoadPct">--%</b></div></div>
+          </div>
+          <div class="j-mini j-mini-d">
+            <h5>NETWORK TRAFFIC</h5>
+            <canvas id="jTrafficWave" width="140" height="40"></canvas>
+            <div><span id="jUp">↑ --</span><span id="jDown">↓ --</span></div>
+          </div>
           <div class="j-panel">
             <h4><i class="j-hicon"></i>TIMER</h4>
             <div class="j-timer">
