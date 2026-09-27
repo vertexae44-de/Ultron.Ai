@@ -161,7 +161,7 @@ const HUD = {
     ];
     const prevKey = this._procKey; const key = rows.map(r => r[1] ? 1 : 0).join("");
     ul.innerHTML = "";
-    for (const [label, active] of rows) ul.append(el("li", { class: active ? "active" : "" }, el("i"), el("span", {}, label)));
+    for (const [label, active] of rows) ul.append(el("li", { class: active ? "active" : "", "data-state": active ? "RUNNING" : "IDLE" }, el("i"), el("span", {}, label)));
     if (prevKey !== undefined && prevKey !== key) {
       rows.forEach((r, i) => { if (r[1] && prevKey[i] !== "1") this.log(`${r[0]} started.`); });
     }
@@ -182,6 +182,8 @@ const HUD = {
     if ($("jUserRole")) $("jUserRole").textContent = u ? `@${u.username}` : "Not signed in";
     const btn = $("jAuthBtn");
     if (btn) { btn.dataset.act = u ? "logout" : "login"; btn.title = u ? "Log out" : "Log in"; }
+    if ($("jAuthLabel")) $("jAuthLabel").textContent = u ? "Log out" : "Log in";
+    if ($("jAccess")) $("jAccess").textContent = u ? "MEMBER · FULL" : "GUEST";
   },
 
   // ---------- quick access ----------

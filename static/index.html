@@ -470,7 +470,7 @@
   .j-clock { margin-left: auto; text-align: right; }
   .j-clock b { display: block; font-family: var(--display); font-size: 18px; letter-spacing: .03em; }
   .j-clock span { display: block; font-size: 9px; color: var(--dim); letter-spacing: .06em; }
-  .j-quote { max-width: 260px; font-size: 10.5px; font-style: italic; color: var(--dim); line-height: 1.4; border-left: 1px solid var(--line-strong); padding-left: 14px; }
+  .j-quote { max-width: 300px; font-size: 10px; font-style: italic; color: var(--dim); line-height: 1.4; border-left: 1px solid var(--line-strong); padding-left: 14px; }
   .j-quote i { display: block; font-style: normal; color: var(--red); font-size: 9px; letter-spacing: .1em; margin-top: 2px; }
 
   .j-col { display: flex; flex-direction: column; gap: 10px; overflow-y: auto; scrollbar-width: thin; min-height: 0; min-width: 0; }
@@ -578,6 +578,69 @@
     .j-mini-a, .j-mini-b { display: none; }
     .j-bottom span { display: none; }
   }
+
+  /* ---------- angular sci-fi skin: chamfered panels, corner brackets, circuit texture ---------- */
+  body.voice-only .jarvis {
+    position: relative;
+    background-image:
+      repeating-linear-gradient(115deg, rgba(255,31,45,.03) 0 2px, transparent 2px 34px),
+      repeating-linear-gradient(25deg, rgba(255,31,45,.025) 0 1px, transparent 1px 40px);
+  }
+  .j-top, .j-panel, .j-mini, .j-bottom {
+    clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+    position: relative;
+  }
+  .j-top::before, .j-panel::before, .j-mini::before, .j-bottom::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none; border: 1px solid var(--line-strong);
+    clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+  }
+  .j-panel::after, .j-mini::after { content: ""; position: absolute; right: 0; top: 0; width: 16px; height: 16px;
+    border-right: 2px solid var(--red); border-top: 2px solid var(--red); filter: drop-shadow(0 0 4px var(--glow)); }
+  .j-panel h4, .j-mini h5 { position: relative; padding-bottom: 7px; }
+  .j-panel h4::after, .j-mini h5::after { content: ""; position: absolute; left: 0; bottom: 0; height: 2px;
+    background: repeating-linear-gradient(90deg, var(--red) 0 4px, transparent 4px 8px); opacity: .55; width: 60%; }
+
+  .jarvis::before, .jarvis::after {
+    content: ""; position: absolute; width: 34px; height: 34px; border: 2px solid var(--red-2); pointer-events: none; opacity: .8;
+    filter: drop-shadow(0 0 5px var(--glow)); z-index: 3;
+  }
+  .jarvis::before { top: -4px; left: -4px; border-right: 0; border-bottom: 0; }
+  .jarvis::after { bottom: -4px; right: -4px; border-left: 0; border-top: 0; }
+
+  .j-status li { position: relative; padding-left: 16px; }
+  .j-status li::before { content: ""; position: absolute; left: 0; top: 50%; width: 6px; height: 6px; margin-top: -3px;
+    background: #4ee08a; box-shadow: 0 0 5px #4ee08a; border-radius: 1px; transform: rotate(45deg); }
+  .j-status li.warn::before { background: #ffb020; box-shadow: 0 0 5px #ffb020; }
+
+  .j-procs li { position: relative; }
+  .j-procs li span { flex: 1; }
+  .j-procs li::after { content: attr(data-state); font-size: 8px; letter-spacing: .1em; color: var(--faint); }
+  .j-procs li.active::after { color: #4ee08a; }
+
+  .j-quote { border-left: none; position: relative; padding-left: 16px; }
+  .j-quote::before { content: ""; position: absolute; left: 0; top: 2px; bottom: 2px; width: 2px;
+    background: repeating-linear-gradient(180deg, var(--red) 0 4px, transparent 4px 8px); }
+
+  .j-core-label, .j-core-caption { letter-spacing: .18em; }
+  .j-center::before { content: ""; position: absolute; width: min(72vh, 640px); height: min(72vh, 640px); border-radius: 50%;
+    border: 1px dashed rgba(255,40,55,.3); pointer-events: none; animation: j-spin 40s linear infinite; }
+  .j-center::after { content: ""; position: absolute; width: min(56vh, 500px); height: min(56vh, 500px); border-radius: 50%;
+    border: 1px solid rgba(255,40,55,.18); pointer-events: none; animation: j-spin 26s linear infinite reverse; }
+  @keyframes j-spin { to { transform: rotate(360deg); } }
+
+  .j-user { position: relative; }
+  .j-userbtns { flex-direction: column; gap: 4px; align-items: stretch; }
+  .j-userbtns button { width: auto; height: auto; border-radius: 3px; padding: 4px 8px; display: flex; align-items: center; gap: 5px; font-size: 8.5px; letter-spacing: .06em; text-transform: uppercase; justify-content: flex-start; }
+  .j-userbtns .i { width: 11px; height: 11px; }
+  .j-access { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; }
+  .j-access span { font-size: 8px; letter-spacing: .1em; color: var(--dim); text-transform: uppercase; }
+  .j-access b { color: var(--red); font-size: 10px; }
+
+  .j-bottom { display: flex; align-items: center; }
+  .j-bottom .j-wave { display: flex; align-items: flex-end; gap: 2px; height: 14px; margin-right: 10px; }
+  .j-bottom .j-wave i { width: 2px; background: var(--red); box-shadow: 0 0 4px var(--glow); animation: j-wavebar 1.2s ease-in-out infinite; }
+  .j-bottom .j-wave i:nth-child(2n) { animation-delay: .2s; } .j-bottom .j-wave i:nth-child(3n) { animation-delay: .4s; }
+  @keyframes j-wavebar { 0%, 100% { height: 3px; } 50% { height: 14px; } }
 
   /* ---------- log-in / sign-up: robot close-up beside the form ---------- */
   #modal .box.auth-split { width: min(860px, 100%); display: grid; grid-template-columns: 1fr 1fr; overflow: hidden; }
@@ -732,7 +795,7 @@
             <div><b>ULTRON</b><span>INTELLIGENCE &nbsp;|&nbsp; CONTROL &nbsp;|&nbsp; EVOLUTION</span></div></div>
           <div class="j-sysstat"><i></i><div><b>SYSTEM ONLINE</b><span>ALL SYSTEMS OPERATIONAL</span></div></div>
           <div class="j-clock"><b id="jTime">--:--</b><span id="jDate">--</span></div>
-          <div class="j-quote" id="jQuote">&ldquo;I see. I calculate. I adapt.&rdquo;<i>&mdash; ULTRON</i></div>
+          <div class="j-quote" id="jQuote">&ldquo;I see. I calculate. I adapt. There is no limit to what I can become.&rdquo;<i>&mdash; ULTRON</i></div>
         </header>
 
         <aside class="j-col j-left">
@@ -810,10 +873,11 @@
               <div class="j-avatar" id="jAvatar">?</div>
               <div><b id="jUserName">Guest</b><span id="jUserRole">Not signed in</span></div>
               <div class="j-userbtns">
-                <button data-act="settings" title="Settings"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/></svg></button>
-                <button id="jAuthBtn" title="Log in">⏻</button>
+                <button data-act="settings" title="Settings"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/></svg><span>Settings</span></button>
+                <button id="jAuthBtn" title="Log in"><svg class="i" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg><span id="jAuthLabel">Log in</span></button>
               </div>
             </div>
+            <div class="j-access"><span>Access Level</span><b id="jAccess">GUEST</b></div>
           </div>
           <div class="j-panel">
             <h4><span class="j-dot"></span>QUICK ACCESS</h4>
@@ -821,7 +885,7 @@
           </div>
         </aside>
 
-        <footer class="j-bottom"><span>A BETTER TOMORROW &mdash; POWERED BY CLAUDE</span><b>ULTRON v1.0 &nbsp;·&nbsp; ALWAYS LISTENING</b></footer>
+        <footer class="j-bottom"><span>A BETTER TOMORROW &mdash; UNDER MY CONTROL</span><span class="j-wave"><i style="height:5px"></i><i style="height:10px"></i><i style="height:14px"></i><i style="height:8px"></i><i style="height:12px"></i><i style="height:6px"></i></span><b>ULTRON v1.0 &nbsp;·&nbsp; ALWAYS WATCHING</b></footer>
       </div>
 
       <div class="composer-slot" id="homeComposerSlot"></div>
