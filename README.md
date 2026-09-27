@@ -18,6 +18,14 @@ python server.py
 
 Open **http://127.0.0.1:8765**. Chrome or Edge are best, because they have built-in speech recognition. Other browsers work too, but you have to type.
 
+### Two brains: Claude, and a free one on your PC
+
+Ultron can think with **Claude** (smartest, billed per use to your API key) or with a **free model running on your own PC** through [Ollama](https://ollama.com) (no cost, works offline, nothing sent to the cloud, but less clever). Both show up in the Model menu and you can switch any time by voice: "go free" or "use Claude".
+
+To add the free brain on Windows: install Ollama from ollama.com, then in PowerShell run `ollama pull qwen3:8b` (about 5 GB; use `qwen3:4b` on a weaker PC). Restart `python server.py` and it appears in the menu. It needs a decent PC: a graphics card with 8 GB or more, or at least 16 GB of memory.
+
+Claude is used by default whenever `ANTHROPIC_API_KEY` is set. To start on the free brain instead, run `python server.py --local` or set `ULTRON_BRAIN=local`. Other settings: `OLLAMA_MODEL` (default `qwen3:8b`), `OLLAMA_URL`, `OLLAMA_NUM_CTX`.
+
 No key yet? `python server.py --mock` runs everything with a keyword bot that still uses the real tools. Try "set a timer for 10 seconds", "write code", "make an animation" or "draw a cat".
 
 ## What it does

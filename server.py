@@ -5,8 +5,10 @@ This server serves the page, relays chat turns to Claude (streaming the reply
 back as server-sent events so the browser can start speaking early), runs the
 tools in tools.py, renders speech with tts.py, and stores chats under data/.
 
-Run:  python server.py            (needs ANTHROPIC_API_KEY or `ant auth login`)
-      python server.py --mock     (no API calls; keyword bot, for testing the UI)
+Run:  python server.py --local    (free: a model running in Ollama on this PC, see local_brain.py)
+      python server.py --claude   (needs ANTHROPIC_API_KEY or `ant auth login`)
+      python server.py            (Claude if ANTHROPIC_API_KEY is set, otherwise local; or set ULTRON_BRAIN)
+      python server.py --mock     (no model at all; keyword bot, for testing the UI)
 """
 
 import argparse
@@ -15,6 +17,7 @@ import os
 import re
 import time
 import uuid
+from types import SimpleNamespace
 from http import HTTPStatus
 from http.cookies import CookieError, SimpleCookie
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -25,6 +28,7 @@ import anthropic
 import urllib.parse
 
 import auth
+import local_brain
 import mailer
 import oauth
 import tools
@@ -111,11 +115,34 @@ Write his middle name exactly like that, hyphenated, so it's said correctly; tha
 pronounced (rhymes with "Ta-da-yahn"), not the standard "Narayan" spelling. \
 Don't use square brackets for anything else."""
 
+# Appended for the smaller on-device models, which tend to over-use tools and ramble.
+LOCAL_NOTE = """
+Only call a tool when the request clearly needs one; for ordinary conversation, just reply. \
+Never write out a tool call as text. Keep replies brief and speakable."""
+
 
 class Handler(SimpleHTTPRequestHandler):
     client: anthropic.Anthropic | None = None
     mock = False
+    brain = "claude"  # which brain new chats start on: "claude", or "local" (free, Ollama on this PC)
     voice: "tts.KokoroVoice | None" = None
+
+    def model_menu(self) -> tuple[dict, str]:
+        """(id -> {label, brain}, default id): Claude's models when there's a key, plus any models
+        downloaded in Ollama. Each chat turn goes to whichever brain its model belongs to."""
+        menu = {k: {"label": v, "brain": "claude"} for k, v in MODELS.items()} if self.client or self.mock else {}
+        local = local_brain.installed_models()
+        menu.update({m: {"label": f"{m} (free, this PC)", "brain": "local"} for m in local})
+        want = local_brain.MODEL
+        local_default = want if want in local else f"{want}:latest" if f"{want}:latest" in local else (local or [None])[0]
+        if self.brain == "local" and local_default:
+            return menu, local_default
+        if self.client:
+            return menu, MODEL
+        if local_default:
+            return menu, local_default
+        # No key and nothing downloaded: offer the recommended model so the error explains how to get it.
+        return {want: {"label": f"{want} (free, this PC)", "brain": "local"}}, want
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(STATIC_DIR), **kwargs)
@@ -159,7 +186,9 @@ class Handler(SimpleHTTPRequestHandler):
         path = self.path.split("?", 1)[0]
         if path == "/api/config":
             user, perms = self.whoami()
+            menu, default_model = self.model_menu()
             self._send_json({
+                "mock": self.mock,
                 "user": user,
                 "perms": perms,
                 "signup": {"open": auth.SIGNUP_OPEN, "needs_code": bool(auth.SIGNUP_CODE)},
@@ -168,8 +197,10 @@ class Handler(SimpleHTTPRequestHandler):
                 "art": _artwork(),
                 "tts": "kokoro" if self.voice else "browser",
                 "voice": tts.VOICE if self.voice else None,
-                "models": [{"id": k, "label": v} for k, v in MODELS.items()],
-                "default_model": MODEL,
+                "models": [{"id": k, "label": v["label"], "brain": v["brain"]} for k, v in menu.items()],
+                "default_model": default_model,
+                "local_model": next((k for k in (local_brain.MODEL, local_brain.MODEL + ":latest")
+                                     if menu.get(k, {}).get("brain") == "local"), None),
                 "default_effort": EFFORT,
                 "images": {
                     "enabled": tools.images_enabled(),
@@ -497,7 +528,11 @@ class Handler(SimpleHTTPRequestHandler):
             messages = _clean_history(body["messages"], allow_files=perms["attachments"])
             ctx = tools.Context(body.get("context"), user, perms)
             ctx.effort = auth.clamp_effort(ctx.effort, perms)
-            model = body.get("model") if body.get("model") in MODELS and auth.model_allowed(body.get("model"), perms, MODEL) else MODEL
+            menu, default_model = self.model_menu()
+            model = body.get("model")
+            if model not in menu or (menu[model]["brain"] == "claude" and not auth.model_allowed(model, perms, MODEL)):
+                model = default_model
+            use_local = menu.get(model, {}).get("brain") == "local"
         except (ValueError, KeyError, TypeError):
             self.send_error(HTTPStatus.BAD_REQUEST, "expected {messages: [...]}")
             return
@@ -509,6 +544,8 @@ class Handler(SimpleHTTPRequestHandler):
         try:
             if self.mock:
                 self._stream_mock(messages, ctx)
+            elif use_local:
+                self._stream_local(messages, ctx, model)
             else:
                 self._stream_claude(messages, ctx, model)
             self._event({"type": "done"})
@@ -594,6 +631,43 @@ class Handler(SimpleHTTPRequestHandler):
         except TypeError as e:  # raised by the SDK when no credentials resolve
             self.log_error("%s", e)
             self._event({"type": "error", "message": "No API credentials. Set ANTHROPIC_API_KEY and restart."})
+
+    def _stream_local(self, messages, ctx, model):
+        """Same job as _stream_claude, against a free model running in Ollama on this PC."""
+        convo = local_brain.to_messages(messages, SYSTEM_PROMPT + LOCAL_NOTE, "vision" in local_brain.capabilities(model))
+        usable = [t for t in tools.TOOLS if t["name"] != "generate_image" or tools.images_enabled()]
+        specs = local_brain.tool_specs(usable)
+        spoke = False
+        try:
+            for _ in range(MAX_TOOL_ROUNDS):
+                first_text, content, calls = True, "", []
+                for kind, value in local_brain.stream_chat(model, convo, specs):
+                    if kind == "tool_calls":
+                        calls = value
+                        continue
+                    text = " " + value if first_text and spoke else value
+                    first_text, spoke = False, True
+                    content += value
+                    self._event({"type": "text", "text": text})
+                if not calls:
+                    return
+                convo.append({"role": "assistant", "content": content, "tool_calls": calls})
+                blocks = []
+                for i, call in enumerate(calls):
+                    fn = call.get("function") or {}
+                    args = fn.get("arguments") or {}
+                    if isinstance(args, str):
+                        try:
+                            args = json.loads(args)
+                        except ValueError:
+                            args = {}
+                    self._event({"type": "tool", "name": fn.get("name", "")})
+                    blocks.append(SimpleNamespace(name=fn.get("name", ""), input=args, id=f"local{i}"))
+                for block, result in zip(blocks, self._run_tools(blocks, ctx)):
+                    convo.append({"role": "tool", "content": result["content"], "tool_name": block.name})
+            self._event({"type": "text", "text": " I got stuck in a loop there. Try asking another way."})
+        except local_brain.LocalBrainError as e:
+            self._event({"type": "error", "message": str(e)})
 
     def _stream_mock(self, messages, ctx):
         """Keyword bot that exercises the real tools without calling Claude."""
@@ -845,19 +919,31 @@ def main():
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--mock", action="store_true", help="don't call the API")
+    brain = parser.add_mutually_exclusive_group()
+    brain.add_argument("--local", dest="brain", action="store_const", const="local",
+                       help="free: use a model running in Ollama on this PC")
+    brain.add_argument("--claude", dest="brain", action="store_const", const="claude",
+                       help="use Claude (needs ANTHROPIC_API_KEY)")
     args = parser.parse_args()
 
+    has_key = bool(os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN"))
+    chosen = (args.brain or os.environ.get("ULTRON_BRAIN", "")).strip().lower()
+    Handler.brain = chosen if chosen in ("local", "claude") else ("claude" if has_key else "local")
     Handler.mock = args.mock
-    if not args.mock:
+    if not args.mock and (has_key or Handler.brain == "claude"):
         Handler.client = anthropic.Anthropic()
-        if not (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")):
+        if not has_key:
             print("Note: ANTHROPIC_API_KEY is not set; relying on an `ant auth login` profile if present.")
     print("Loading voice…", end=" ", flush=True)
     Handler.voice, voice_status = tts.load()
     print(voice_status)
     server = ThreadingHTTPServer((args.host, args.port), Handler)
-    mode = "mock mode" if args.mock else f"default model {MODEL}, effort {EFFORT}"
+    mode = "mock mode" if args.mock else f"starts on the {'free local' if Handler.brain == 'local' else 'Claude'} brain"
     print(f"Ultron online at http://{args.host}:{args.port}  ({mode})")
+    if not args.mock:
+        print("Claude brain:", f"on ({MODEL}, effort {EFFORT}), billed to your API key" if Handler.client
+              else "off (set ANTHROPIC_API_KEY to add it)")
+        print("Free brain:", local_brain.status())
     if tools.HOME_LOCATION:
         print(f"Home location for weather: {tools.HOME_LOCATION}")
     print("Image generation:", f"on ({tools.IMAGE_MODEL})" if tools.images_enabled() else "off (set OPENAI_API_KEY to enable)")

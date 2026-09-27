@@ -179,6 +179,8 @@ const HUD = {
       ["Voice Recognition", ("webkitSpeechRecognition" in window || "SpeechRecognition" in window) ? "ready" : "unavailable", !("webkitSpeechRecognition" in window || "SpeechRecognition" in window)],
       ["Camera Access", (typeof Gesture !== "undefined" && Gesture.running) ? "active" : "standby", false],
       ["Account", (typeof App !== "undefined" && App.user) ? "signed in" : "guest", false],
+      ["AI Brain", App.config?.mock ? "test mode"
+        : { local: "free, this PC", claude: "Claude" }[App.config?.models?.find(m => m.id === $("model")?.value)?.brain] || "--", false],
     ];
     ul.innerHTML = "";
     for (const [label, val, warn] of rows) ul.append(el("li", { class: warn ? "warn" : "" }, el("span", {}, label), el("span", {}, val)));

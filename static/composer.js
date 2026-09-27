@@ -333,9 +333,11 @@ function syncModels() {
       sel.value = m.id; store.set("model", m.id); syncModels(); toast(`Model: ${m.label}`);
     } },
       el("span", { class: "ic" }, frag(icon("model"))),
-      el("span", { class: "tx" }, el("span", { class: "t" }, m.label), el("span", { class: "s" }, MODEL_BLURBS[m.id] || "Claude model")),
+      el("span", { class: "tx" }, el("span", { class: "t" }, m.label), el("span", { class: "s" },
+        m.brain === "local" ? "Free. Runs on this PC, nothing sent to the cloud." : MODEL_BLURBS[m.id] || "Claude model")),
       m.id === sel.value ? el("span", { class: "badge" }, "Selected")
         : m.id === c.default_model ? el("span", { class: "badge" }, "Default") : null))));
+  if (typeof HUD !== "undefined") HUD.buildStatus();
 }
 
 onConfig(() => {

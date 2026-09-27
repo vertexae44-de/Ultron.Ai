@@ -179,7 +179,8 @@ APP_ACTIONS = {
     "open_chats": "open saved chats; value = optional search text",
     "open_chat": "open the saved chat whose title best matches value, or the latest if value is empty",
     "set_level": "set the thinking level; value = 1 to 5",
-    "set_model": "switch model; value = opus-5, opus-5.5 or sonnet-5",
+    "set_model": "switch model; value = opus-5, opus-5.5, sonnet-5, claude, or free (the no-cost model running "
+                 "on this PC, if one is installed)",
     "open_settings": "open settings",
     "log_in": "show the log-in screen",
     "sign_up": "show the sign-up screen",

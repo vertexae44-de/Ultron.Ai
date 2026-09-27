@@ -21,7 +21,13 @@ function norm(text) {
 function modelFor(said) {
   if (/sonnet/.test(said)) return "claude-sonnet-5";
   if (/opus/.test(said)) return /5\s*\.?\s*5\b|five point five/.test(said) ? "claude-opus-5-5" : "claude-opus-5";
-  return null;
+  const models = App.config?.models || [];
+  const preferred = { claude: App.config?.default_model, local: App.config?.local_model };
+  const brain = (b) => models.find(m => m.brain === b && m.id === preferred[b]) || models.find(m => m.brain === b);
+  if (/\b(?:claude|cloud|smart)\b/.test(said)) return brain("claude")?.id || null;
+  if (/\b(?:free|local|offline|on[- ]device|this pc)\b/.test(said)) return brain("local")?.id || null;
+  const named = models.find(m => m.brain === "local" && said.includes(m.id.split(":")[0].replace(/[.\d]+$/, "")));
+  return named ? named.id : null;
 }
 
 function scrollTarget() {
@@ -63,6 +69,7 @@ const COMMANDS = [
   [/^(?:level up|think harder|be smarter|smarter|more effort|higher level)$/, () => Voice.run("set_level", String(Composer.levelNum() + 1))],
   [/^(?:level down|be quicker|quicker|faster|less effort|lower level)$/, () => Voice.run("set_level", String(Composer.levelNum() - 1))],
   [/^(?:use|switch to|change to|select|pick)(?: the)?(?: model)? ((?:claude )?(?:opus|sonnet).*)$/, (m) => Voice.run("set_model", m[1])],
+  [/^(?:use|switch to|change to|go|go to)(?: the)? (claude|cloud|free|local|offline)(?: mode| brain| model| ai)?$/, (m) => Voice.run("set_model", m[1])],
   [/^what (?:level|model)(?: am i on| is (?:this|it|selected)| are you(?: on| using)?)?$/, () => {
     const l = Composer.levelNum(), m = App.config?.models?.find(x => x.id === Composer.model());
     return `Level ${l}, ${LEVELS[l - 1].name}, on ${m ? m.label : "the default model"}.`;
