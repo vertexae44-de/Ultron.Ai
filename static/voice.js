@@ -101,6 +101,9 @@ const COMMANDS = [
   [/^(?:close|dismiss|exit|stop)(?: the)? hologram$/, () => Voice.run("close_hologram")],
   // "project a cube" / "project a red ferrari" / "show me a hologram of the eiffel tower" -- anything
   // after "project"/"hologram of" is either a known primitive shape or a free description to generate.
+  [/^(?:open|show)(?: me)?(?: the)? (.+?) (?:trading )?chart$/, (m) => Voice.run("open_chart", m[1])],
+  [/^(?:open|show)(?: me)?(?: the)? chart (?:for|of) (.+)$/, (m) => Voice.run("open_chart", m[1])],
+  [/^(?:show|what'?s)(?: me)? (.+?)'?s? (?:chart|trading chart)$/, (m) => Voice.run("open_chart", m[1])],
   [/^project(?: the| a| an)? (.+)$/, (m) => Voice.run("project", m[1])],
   [/^show me(?: the| a| an)? hologram of (.+)$/, (m) => Voice.run("project", m[1])],
   [/^(?:replay|play (?:it |that )?again|restart(?: the animation)?)$/, () => Voice.run("replay_animation")],
@@ -249,6 +252,7 @@ const Voice = {
           : `Generating "${what}" to project. One moment.`;
       }
       case "close_hologram": Hologram.close(); return "Closed.";
+      case "open_chart": return Markets.openChart(value);
       case "replay_animation":
         if (!Player.frame) return "There's no animation open.";
         Player.frame.srcdoc = sandboxDoc(Player.html); return "";

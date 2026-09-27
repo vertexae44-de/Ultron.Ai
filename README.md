@@ -38,6 +38,8 @@ No key yet? `python server.py --mock` runs everything with a keyword bot that st
 | **HUD** | Four glowing ring gauges above the orb: the time, your device's battery, the local temperature (via your browser's geolocation, or `ULTRON_LOCATION`), and the nearest running timer. All update live, no asking required. |
 | **Voice-only home** | The home screen has no typing box or text transcript -- it's the orb, the HUD and the Trending sidebar, nothing else. Voice is the only way in. Saved chats still work in the background (say "open my last chat"); there's just nowhere for the text to show. |
 | **Boot sequence** | The first time you dismiss the START screen each session, Ultron speaks a short "system awakening" announcement before anything else (including the market briefing, which waits for it). Edit `BOOT_LINES` in `static/account.js` to change it. |
+| **Trading charts** | Say "open the Bitcoin chart" or "show me Tesla's chart" for an expanded chart of anything in today's Trending list, with price, change and a filled line chart. |
+| **Media player** | A local audio/video player in the sidebar, with a small reactive visualizer. Nothing is uploaded -- files play straight from your browser. |
 | **Hands-free stays hands-free** | A voice conversation never jumps you to the text chat screen -- you stay wherever you are (home, code, wherever) and it's saved regardless; say "show the chat" to see it. Typing in the composer still opens the chat view as before. |
 
 ![animation player](docs/animation.png)

@@ -202,6 +202,7 @@ const Account = {
     const card = $("sideCard"), img = App.config.images;
     const credits = () => img.enabled ? [el("div", { class: "meter" }, el("i", { style: `width:${img.limit > 0 ? (img.left / img.limit) * 100 : 100}%` })),
       el("p", {}, img.limit > 0 ? `${img.left} of ${img.limit} images left · refills over ${img.window_hours} hours` : "Unlimited images")] : [];
+    card.hidden = !(u && img.enabled);
     if (u && img.enabled) {
       card.replaceChildren(el("span", { class: "spaced", style: "color:var(--red)" }, "Image credits"),
         el("h3", {}, img.limit > 0 ? `${img.left} of ${img.limit} left` : "Unlimited"), ...credits());

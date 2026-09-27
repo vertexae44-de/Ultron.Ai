@@ -238,6 +238,28 @@ $("topSearch").addEventListener("keydown", (e) => { if (e.key === "Enter") { Cha
 onConfig(() => Chats.refresh());
 
 // ---------- markets: trending crypto and stocks, loaded on startup (no chat, no voice needed) ----------
+// The bigger line chart drawn inside Markets.openChart's modal.
+function drawChart(canvas, points, up) {
+  const g = canvas.getContext("2d"), w = canvas.width, h = canvas.height, pad = 24;
+  g.clearRect(0, 0, w, h);
+  if (points.length < 2) { g.fillStyle = "#8a8080"; g.font = "13px sans-serif"; g.fillText("Not enough data yet.", pad, h / 2); return; }
+  const lo = Math.min(...points), hi = Math.max(...points), span = hi - lo || 1;
+  const x = (i) => pad + (i / (points.length - 1)) * (w - pad * 2);
+  const y = (v) => h - pad - ((v - lo) / span) * (h - pad * 2);
+  g.strokeStyle = "rgba(255,255,255,.08)"; g.lineWidth = 1;
+  for (let i = 0; i <= 3; i++) { const yy = pad + (i / 3) * (h - pad * 2); g.beginPath(); g.moveTo(pad, yy); g.lineTo(w - pad, yy); g.stroke(); }
+  const color = up === false ? "#ff6b5a" : "#4ee08a";
+  g.beginPath(); points.forEach((v, i) => (i ? g.lineTo(x(i), y(v)) : g.moveTo(x(i), y(v))));
+  g.strokeStyle = color; g.lineWidth = 2.2; g.stroke();
+  g.lineTo(x(points.length - 1), h - pad); g.lineTo(x(0), h - pad); g.closePath();
+  const grad = g.createLinearGradient(0, pad, 0, h - pad);
+  grad.addColorStop(0, color + "33"); grad.addColorStop(1, color + "00");
+  g.fillStyle = grad; g.fill();
+  g.fillStyle = "#8a8080"; g.font = "11px sans-serif"; g.textAlign = "right";
+  g.fillText(hi.toLocaleString(), w - pad, pad + 10);
+  g.fillText(lo.toLocaleString(), w - pad, h - pad - 2);
+}
+
 // A tiny inline sparkline for a market row: no library, just a normalised polyline.
 function sparkSVG(points, up) {
   if (!points || points.length < 2) return el("span", { class: "spark" });
@@ -247,19 +269,52 @@ function sparkSVG(points, up) {
 }
 
 const Markets = {
-  interval: null,
+  interval: null, data: null,
 
   async load() {
     try {
       const r = await fetch("/api/markets");
       if (!r.ok) throw new Error(r.status);
       const data = await r.json();
+      this.data = data;
       this.render(data);
       return data;
     } catch {
       $("marketsList").replaceChildren(el("li", { class: "empty" }, "Couldn't reach the market right now."));
       return null;
     }
+  },
+
+  // Find a trending row by name or symbol, for "open the bitcoin chart".
+  find(query) {
+    const q = (query || "").trim().toLowerCase();
+    if (!q) return null;
+    const rows = [...(this.data?.crypto || []).map(c => ({ ...c, kind: "Crypto" })),
+                  ...(this.data?.stocks || []).map(c => ({ ...c, kind: "Stock" }))];
+    return rows.find(r => r.symbol?.toLowerCase() === q) || rows.find(r => r.name?.toLowerCase().includes(q))
+      || rows.find(r => q.includes(r.name?.toLowerCase()) || q.includes(r.symbol?.toLowerCase())) || null;
+  },
+
+  // A bigger line chart for one row, in a modal: "open the bitcoin chart".
+  openChart(query) {
+    const row = this.find(query);
+    if (!row) return `I don't have a chart for ${query || "that"} right now -- it isn't in today's trending list.`;
+    const up = row.change_pct == null ? null : row.change_pct >= 0;
+    const canvas = el("canvas", { class: "chart-canvas", width: 640, height: 260 });
+    const box = el("div", { class: "box wide", role: "dialog", "aria-label": row.name + " chart" },
+      el("header", {},
+        el("h2", {}, row.name, el("span", { class: "muted", style: "color:var(--dim);font-size:13px;margin-left:8px" }, row.kind)),
+        el("button", { class: "icon-btn", "aria-label": "Close", onclick: () => Modal.close() }, "×")),
+      el("div", { class: "body" },
+        el("div", { class: "chart-head" },
+          el("span", { class: "chart-price" }, row.price == null ? "—" : "$" + row.price.toLocaleString()),
+          up === null ? null : el("span", { class: "chg " + (up ? "up" : "down") }, (up ? "▲ " : "▼ ") + Math.abs(row.change_pct) + "%")),
+        canvas,
+        el("p", { class: "muted", style: "color:var(--dim);font-size:11.5px;text-align:center;margin-top:8px" },
+          row.kind === "Crypto" ? "Last 24 hours" : "Today's session")));
+    Modal.open(box);
+    drawChart(canvas, row.spark || [], up);
+    return "";
   },
 
   render(data) {

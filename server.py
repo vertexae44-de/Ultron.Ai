@@ -631,6 +631,10 @@ class Handler(SimpleHTTPRequestHandler):
         elif "time" in low:
             r = call("get_current_time", {})
             reply = f"[calm] It's {r['local_time']}."
+        elif m := re.search(r"\bchart\b.*?\b(?:of|for)?\s*(\w[\w .]*)$|\b(\w[\w .]*?)\s*(?:trading )?chart\b", low):
+            name = (m.group(1) or m.group(2) or "").strip()
+            call("control_app", {"action": "open_chart", "value": name})
+            reply = f"[calm] Opening the {name} chart." if name else "[concerned] Which one?"
         elif re.search(r"\b(trending|market|stocks?|crypto)\b", low):
             r = call("get_market_trends", {})
             bits = [f"{c['name']} at {c['price']}" for c in r.get("crypto", [])[:1]] + [f"{c['name']} at {c['price']}" for c in r.get("stocks", [])[:1]]

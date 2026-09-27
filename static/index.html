@@ -315,7 +315,8 @@
   body.voice-only [data-act="chat"], body.voice-only .actions,
   body.voice-only .hero .wordmark, body.voice-only .hero .spaced, body.voice-only .greet,
   body.voice-only #upsell { display: none !important; }
-  body.voice-only .hero { justify-content: center; gap: 18px; }
+  body.voice-only .hero { justify-content: center; gap: 18px; flex: 1; min-height: 0; }
+  body.voice-only .orb-slot { height: clamp(280px, 56vh, 560px); }
   /* ---------- HUD strip: clock, battery, temperature, timer ---------- */
   .hud-row { display: flex; justify-content: center; gap: 22px; flex-wrap: wrap; margin: 4px 0 2px; }
   .gauge { width: 92px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
@@ -337,6 +338,29 @@
   .list.markets .spark polyline { fill: none; stroke-width: 1.6; }
   .list.markets .spark.up polyline { stroke: #4ee08a; }
   .list.markets .spark.down polyline { stroke: #ff6b5a; }
+  /* ---------- Media player (sidebar) ---------- */
+  .media-player { display: flex; flex-direction: column; gap: 8px; }
+  .mp-vis { width: 100%; height: 44px; border-radius: 8px; background: rgba(255,40,55,.06); display: block; }
+  .mp-title { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mp-seek, .mp-vol { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 99px;
+    background: rgba(255,255,255,.12); outline: none; cursor: pointer; }
+  .mp-seek::-webkit-slider-thumb, .mp-vol::-webkit-slider-thumb { -webkit-appearance: none; appearance: none;
+    width: 12px; height: 12px; border-radius: 50%; background: var(--red); box-shadow: 0 0 6px var(--glow); }
+  .mp-seek::-moz-range-thumb, .mp-vol::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%; border: none; background: var(--red); }
+  .mp-times { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--dim); margin-top: -4px; }
+  .mp-controls { display: flex; align-items: center; gap: 8px; }
+  .mp-controls .icon-btn { width: 30px; height: 30px; flex: none; }
+  .mp-controls .play { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line-strong); background: rgba(255,31,45,.1); }
+  .mp-controls .vol { flex: none; }
+  .mp-vol { width: 60px; }
+  /* ---------- Trading chart modal ---------- */
+  .chart-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px; }
+  .chart-price { font-size: 24px; font-weight: 800; font-family: var(--display); }
+  .chart-head .chg { font-size: 15px; font-weight: 700; }
+  .chart-head .chg.up { color: #4ee08a; } .chart-head .chg.down { color: #ff6b5a; }
+  .chart-canvas { width: 100%; height: auto; border-radius: 10px; background: rgba(255,255,255,.02); }
+
+
 
   #hologramView { position: fixed; inset: 0; z-index: 80; background: radial-gradient(ellipse at 50% 40%, rgba(90,10,16,.35), #030102 70%); }
   body.hologram-open .gesture-panel { bottom: 76px; }   /* stay clear of the hologram's own hint bar */
@@ -529,9 +553,20 @@
     <button class="nav" data-act="voice"><svg class="i" viewBox="0 0 24 24"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3"/></svg>Voice</button>
     <button class="nav" data-act="history"><svg class="i" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg>History</button>
     <button class="nav" data-act="settings"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/></svg>Settings</button>
-    <div class="side-card" id="sideCard">
-      <div class="row"><svg class="logo" style="width:28px;height:28px"><use href="#ultron-logo"/></svg><span class="spaced" style="color:var(--red)">Ultron AI</span></div>
-      <h3>v1.0</h3><p>Built for a smarter tomorrow.</p>
+    <div class="side-card" id="sideCard" hidden></div>
+    <div class="side-card media-player" id="mediaPlayer">
+      <canvas id="mpVis" class="mp-vis"></canvas>
+      <div class="mp-title" id="mpTitle">No media loaded</div>
+      <input type="range" id="mpSeek" class="mp-seek" min="0" max="1000" value="0" step="1" aria-label="Seek">
+      <div class="mp-times"><span id="mpCur">0:00</span><span id="mpDur">0:00</span></div>
+      <div class="mp-controls">
+        <button id="mpLoadBtn" class="icon-btn" title="Load media" aria-label="Load media">
+          <svg class="i" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 19h16"/></svg></button>
+        <button id="mpPlay" class="icon-btn play" title="Play" aria-label="Play">
+          <svg class="i" viewBox="0 0 24 24"><path d="M7 5v14l11-7z"/></svg></button>
+        <input type="range" id="mpVol" class="mp-vol" min="0" max="1" value="1" step="0.01" aria-label="Volume">
+      </div>
+      <input type="file" id="mpFile" accept="audio/*,video/*" hidden multiple>
     </div>
   </nav>
 
@@ -684,6 +719,7 @@
 <div id="toast" hidden role="status"></div>
 
 <script src="app.js"></script>
+<script src="player.js"></script>
 <script src="code.js"></script>
 <script src="composer.js"></script>
 <script src="hud.js"></script>
