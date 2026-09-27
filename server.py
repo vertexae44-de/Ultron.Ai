@@ -603,6 +603,12 @@ class Handler(SimpleHTTPRequestHandler):
             action = {"gallery": "show_images", "settings": "open_settings"}[m[1]]
             call("control_app", {"action": action})
             reply = f"[calm] Done. {m[1].capitalize()} is open."
+        elif re.search(r"\b(?:open|show|expand)\b.*\bside", low):
+            call("control_app", {"action": "show_sidebar"})
+            reply = "[calm] Here you go."
+        elif re.search(r"\b(?:hide|close|collapse)\b.*\bside", low):
+            call("control_app", {"action": "hide_sidebar"})
+            reply = "[calm] Hidden."
         elif re.search(r"\banimat", low):
             call("create_animation", {"title": "Pulsing core", "seconds": 3, "html": MOCK_ANIMATION})
             reply = "[excited] Here's a pulsing core. You can record it as a video."

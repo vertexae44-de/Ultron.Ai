@@ -33,10 +33,12 @@ const TEXT_EXT = /\.(txt|md|markdown|csv|tsv|json|jsonl|xml|ya?ml|toml|ini|cfg|c
 // ---------- views ----------
 const View = {
   current: "home",
+  showChrome: false,   // "open the sidebar": temporarily undoes fullscreen-home to show the tools
   show(name) {
     if (name === "chat") name = "home";   // voice-only: never show the text transcript
     const ids = { home: "homeView", chat: "chatView", images: "imagesView" };
     if (!ids[name]) return;
+    if (name !== "home") this.showChrome = false;   // leaving home resets it; other views always show chrome
     this.current = name;
     for (const [k, id] of Object.entries(ids)) $(id).classList.toggle("active", k === name);
     const slot = name === "chat" ? $("chatComposerSlot") : $("homeComposerSlot");
@@ -45,10 +47,18 @@ const View = {
       if (b.dataset.view === name) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
     });
     $("sidebar").classList.remove("open");
-    document.querySelector(".shell").classList.toggle("home-full", name === "home" && document.body.classList.contains("voice-only"));
+    document.querySelector(".shell").classList.toggle("home-full",
+      name === "home" && document.body.classList.contains("voice-only") && !this.showChrome);
     if (name === "images") Gallery.load();
     if (name === "chat") Chat.scrollToEnd();
     requestAnimationFrame(updateLayout);
+  },
+
+  // "open the sidebar" / "hide the sidebar", voice-driven. Only matters on the fullscreen home
+  // screen; every other screen already shows the sidebar and tools.
+  setChrome(show) {
+    this.showChrome = show;
+    this.show(this.current);
   },
 };
 

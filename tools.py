@@ -163,6 +163,8 @@ TOOLS = [
 APP_ACTIONS = {
     "new_chat": "start a fresh chat",
     "show_home": "go to the home dashboard",
+    "show_sidebar": "show the sidebar, topbar and tools panel on the home screen (it's hidden by default)",
+    "hide_sidebar": "hide the sidebar/topbar again, back to just the orb",
     "show_chat": "show the current conversation",
     "show_images": "open the image gallery",
     "open_code": "open the code editor",

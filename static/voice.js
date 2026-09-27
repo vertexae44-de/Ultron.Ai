@@ -40,6 +40,9 @@ const COMMANDS = [
     () => Voice.run("new_chat")],
   [/^(?:(?:go |take me )?(?:back )?home|(?:go to|open|show)(?: the)? (?:home|dashboard)(?: page| screen)?)$/,
     () => Voice.run("show_home")],
+  [/^(?:open|show|expand)(?: the| my)? side(?:bar)?s?$/, () => Voice.run("show_sidebar")],
+  [/^(?:show|show me)(?: the| my)? tools$/, () => Voice.run("show_sidebar")],
+  [/^(?:hide|close|collapse)(?: the| my)? side(?:bar)?s?$/, () => Voice.run("hide_sidebar")],
   [/^(?:open|show|go to|back to)(?: the| my)? (?:chat|conversation|transcript)$/,
     () => Voice.run("show_chat")],
   [/^(?:open|show|go to|view)(?: the| my)? (?:images|image gallery|gallery|pictures|photos|generated images)$/,
@@ -180,6 +183,8 @@ const Voice = {
     switch (action) {
       case "new_chat": Chats.closeDrawer(); Modal.close(); Chat.reset(); return "New chat.";
       case "show_home": Modal.close(); Chats.closeDrawer(); View.show("home"); return "Home.";
+      case "show_sidebar": View.setChrome(true); return "Here you go.";
+      case "hide_sidebar": View.setChrome(false); return "Hidden.";
       case "show_chat": Modal.close(); View.show("chat"); return Chat.history.length ? "" : "No messages yet. Go ahead.";
       case "show_images":
         if (!Account.require("see your images", "images")) return "You'll need an account for images.";
