@@ -40,6 +40,8 @@ No key yet? `python server.py --mock` runs everything with a keyword bot that st
 | **Boot sequence** | The first time you dismiss the START screen each session, Ultron speaks a short "system awakening" announcement before anything else (including the market briefing, which waits for it). Edit `BOOT_LINES` in `static/account.js` to change it. |
 | **Trading charts** | Say "open the Bitcoin chart" or "show me Tesla's chart" for a live, real candlestick chart (red and green) of anything in today's Trending list, embedded straight from TradingView -- draggable, zoomable, with its own toolbar. |
 | **Media player** | A local audio/video player in the sidebar, with a small reactive visualizer. Nothing is uploaded -- files play straight from your browser. |
+| **YouTube, hands-free** | Say "play [anything] on YouTube" and it opens right inside Ultron, fully voice-controlled ("pause the video", "next video", "close the video"). Headphone/hardware media buttons (and a phone's lock-screen media controls, if you're on mobile) also control whichever local media is playing, through the browser's standard media-session hooks. |
+
 | **Hands-free stays hands-free** | A voice conversation never jumps you to the text chat screen -- you stay wherever you are (home, code, wherever) and it's saved regardless; say "show the chat" to see it. Typing in the composer still opens the chat view as before. |
 
 ![animation player](docs/animation.png)
@@ -128,6 +130,10 @@ Set `ULTRON_PUBLIC_URL` to your site's exact address (for example `https://ultro
 4. Set `APPLE_CLIENT_ID` (the Services ID), `APPLE_TEAM_ID` (top right of the developer site), `APPLE_KEY_ID`, and `APPLE_PRIVATE_KEY_FILE=/path/to/AuthKey_XXXX.p8`.
 
 Apple shares the person's name only the first time they sign in, and may hand over a private relay email address. Ultron handles both. If you set an invite code (`ULTRON_SIGNUP_CODE`), new Google and Apple sign-ups are turned off, because there's nowhere to type the code; existing linked accounts still work.
+
+## A note on "device control"
+
+Ultron can play YouTube inside itself and respond to hardware media buttons (headphones, a phone's lock screen) for whatever's playing in the browser tab -- that's real, and it's what "device control" means here. What it can't do, and what no website can do: reach out and open apps or take over a *separate* physical device, like actually operating your phone's YouTube app from your computer. That needs a companion app running on the phone itself, which is a different, much bigger project than a web page.
 
 ## Sharing it with other people
 

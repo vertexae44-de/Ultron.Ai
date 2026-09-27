@@ -194,6 +194,11 @@ APP_ACTIONS = {
     "open_chart": "open an expanded trading chart for one of today's trending crypto or stocks; "
                   "value = its name or symbol, e.g. 'bitcoin' or 'TSLA'. Only works for names "
                   "currently in the trending list (get_market_trends or the Trending sidebar).",
+    "play_youtube": "open an embedded YouTube player inside the app and play a search for value. "
+                     "This plays on this device only, in the app itself -- there is no way to "
+                     "control a separate phone or TV from here; say so plainly if asked.",
+    "pause_video": "pause the YouTube video", "resume_video": "resume the YouTube video",
+    "next_video": "skip to the next YouTube search result", "close_video": "close the YouTube player",
 }
 TOOLS.append({
     "name": "control_app",

@@ -11,8 +11,8 @@ const MPlayer = {
     this.audio.addEventListener("timeupdate", () => this.tick());
     this.audio.addEventListener("loadedmetadata", () => this.tick());
     this.audio.addEventListener("ended", () => this.next());
-    this.audio.addEventListener("play", () => this.setIcon(true));
-    this.audio.addEventListener("pause", () => this.setIcon(false));
+    this.audio.addEventListener("play", () => { this.setIcon(true); if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "playing"; });
+    this.audio.addEventListener("pause", () => { this.setIcon(false); if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "paused"; });
 
     $("mpLoadBtn").addEventListener("click", () => $("mpFile").click());
     $("mpFile").addEventListener("change", (e) => this.load([...e.target.files]));
@@ -24,6 +24,20 @@ const MPlayer = {
     this.resizeCanvas();
     addEventListener("resize", () => this.resizeCanvas());
     this.draw();
+    this.wireMediaSession();
+  },
+
+  // The browser's OS-level "now playing" controls -- headphone play/pause/skip buttons, a phone's
+  // lock screen, a smartwatch -- talk to whichever page holds this session. This is real device
+  // control, just not the "open an app on my phone" kind: the phone here is a Bluetooth remote for
+  // audio already playing in this browser tab, not a thing Ultron reaches out and operates.
+  wireMediaSession() {
+    if (!("mediaSession" in navigator)) return;
+    navigator.mediaSession.setActionHandler("play", () => this.toggle());
+    navigator.mediaSession.setActionHandler("pause", () => this.toggle());
+    navigator.mediaSession.setActionHandler("previoustrack", () => this.prev());
+    navigator.mediaSession.setActionHandler("nexttrack", () => this.next());
+    navigator.mediaSession.setActionHandler("seekto", (d) => { if (d.seekTime != null) this.audio.currentTime = d.seekTime; });
   },
 
   load(files) {
@@ -37,11 +51,14 @@ const MPlayer = {
     this.index = i;
     const f = this.playlist[i];
     this.audio.src = URL.createObjectURL(f);
-    $("mpTitle").textContent = f.name.replace(/\.[a-z0-9]+$/i, "");
+    const title = f.name.replace(/\.[a-z0-9]+$/i, "");
+    $("mpTitle").textContent = title;
+    if ("mediaSession" in navigator) navigator.mediaSession.metadata = new MediaMetadata({ title, artist: "Ultron AI" });
     this.ensureAnalyser();
     this.audio.play().catch(() => {});
   },
 
+  prev() { if (this.playlist.length > 1) this.play((this.index - 1 + this.playlist.length) % this.playlist.length); },
   next() { if (this.playlist.length > 1) this.play((this.index + 1) % this.playlist.length); },
 
   toggle() {

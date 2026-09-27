@@ -101,6 +101,12 @@ const COMMANDS = [
   [/^(?:close|dismiss|exit|stop)(?: the)? hologram$/, () => Voice.run("close_hologram")],
   // "project a cube" / "project a red ferrari" / "show me a hologram of the eiffel tower" -- anything
   // after "project"/"hologram of" is either a known primitive shape or a free description to generate.
+  [/^(?:play|watch)(?: a| an| the)? (.+?) (?:video )?on youtube$/, (m) => Voice.run("play_youtube", m[1])],
+  [/^youtube (.+)$/, (m) => Voice.run("play_youtube", m[1])],
+  [/^(?:pause|stop) the video$/, () => Voice.run("pause_video")],
+  [/^(?:resume|play|unpause) the video$/, () => Voice.run("resume_video")],
+  [/^next video$/, () => Voice.run("next_video")],
+  [/^close(?: the)? (?:video|youtube)$/, () => Voice.run("close_video")],
   [/^(?:open|show)(?: me)?(?: the)? (.+?) (?:trading )?chart$/, (m) => Voice.run("open_chart", m[1])],
   [/^(?:open|show)(?: me)?(?: the)? chart (?:for|of) (.+)$/, (m) => Voice.run("open_chart", m[1])],
   [/^(?:show|what'?s)(?: me)? (.+?)'?s? (?:chart|trading chart)$/, (m) => Voice.run("open_chart", m[1])],
@@ -253,6 +259,15 @@ const Voice = {
       }
       case "close_hologram": Hologram.close(); return "Closed.";
       case "open_chart": return Markets.openChart(value);
+      case "play_youtube": {
+        const q = value || "";
+        YouTube.play(q).then(msg => { if (msg) speak(msg, "concerned"); });
+        return q ? `Playing ${q} on YouTube.` : "Watch what?";
+      }
+      case "pause_video": YouTube.pause(); return "";
+      case "resume_video": YouTube.resume(); return "";
+      case "next_video": YouTube.next(); return "Next.";
+      case "close_video": YouTube.close(); return "Closed.";
       case "replay_animation":
         if (!Player.frame) return "There's no animation open.";
         Player.frame.srcdoc = sandboxDoc(Player.html); return "";
@@ -261,6 +276,7 @@ const Voice = {
         if (Player.recordBtn.disabled) return "Already recording.";
         Player.record(); return `Recording ${Player.seconds} seconds.`;
       case "close":
+        if (!$("ytView").hidden) { YouTube.close(); return ""; }
         if (Hologram.active) { Hologram.close(); return ""; }
         if (document.querySelector(".menu")) { closeMenus(); return ""; }
         if (Modal.isOpen) { Modal.close(); return ""; }
