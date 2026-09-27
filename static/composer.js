@@ -84,6 +84,8 @@ function act(name) {
     case "settings": Account.settings(); break;
     case "signup": Account.open("signup"); break;
     case "login": Account.open("login"); break;
+    case "logout": Account.logout(); break;
+    case "media": View.setChrome(true); $("mediaPlayer")?.scrollIntoView({ behavior: "smooth", block: "center" }); break;
   }
 }
 document.addEventListener("click", (e) => {

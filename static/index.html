@@ -446,6 +446,139 @@
   #upsell h3, #upsell p, #upsell li { text-shadow: 0 1px 8px #000, 0 0 2px #000; }
   @media (max-width: 1100px) { #homeView .hero-art { display: none; } }
 
+  /* ---------- JARVIS-style dashboard (the fullscreen voice-only home) ---------- */
+  .jarvis { display: none; }
+  body.voice-only .jarvis { display: grid; grid-template-areas: "top top top" "left center right" "bottom bottom bottom";
+    grid-template-columns: 240px 1fr 240px; grid-template-rows: auto 1fr auto;
+    gap: 14px; width: 100%; height: 100%; min-height: 0; font-family: var(--body); }
+  body.voice-only #homeView .hero-art,
+  body.voice-only #homeView .wordmark,
+  body.voice-only #homeView .greet,
+  body.voice-only #homeView .actions,
+  body.voice-only #homeView .foot.spaced { display: none !important; }
+
+  .j-top { grid-area: top; display: flex; align-items: center; gap: 18px; padding: 10px 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+  .j-brand { display: flex; align-items: center; gap: 10px; }
+  .j-logo { width: 30px; height: 30px; fill: var(--red); filter: drop-shadow(0 0 6px var(--glow)); }
+  .j-brand b { font-family: var(--display); font-size: 15px; letter-spacing: .12em; }
+  .j-brand span { display: block; font-size: 8.5px; letter-spacing: .1em; color: var(--dim); }
+  .j-sysstat { display: flex; align-items: center; gap: 8px; margin-left: 10px; }
+  .j-sysstat i { width: 8px; height: 8px; border-radius: 50%; background: #4ee08a; box-shadow: 0 0 8px #4ee08a; flex: 0 0 auto; animation: j-blink 2s ease-in-out infinite; }
+  @keyframes j-blink { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
+  .j-sysstat b { display: block; font-size: 10.5px; letter-spacing: .06em; }
+  .j-sysstat span { display: block; font-size: 8.5px; color: var(--dim); letter-spacing: .04em; }
+  .j-clock { margin-left: auto; text-align: right; }
+  .j-clock b { display: block; font-family: var(--display); font-size: 18px; letter-spacing: .03em; }
+  .j-clock span { display: block; font-size: 9px; color: var(--dim); letter-spacing: .06em; }
+  .j-quote { max-width: 260px; font-size: 10.5px; font-style: italic; color: var(--dim); line-height: 1.4; border-left: 1px solid var(--line-strong); padding-left: 14px; }
+  .j-quote i { display: block; font-style: normal; color: var(--red); font-size: 9px; letter-spacing: .1em; margin-top: 2px; }
+
+  .j-col { display: flex; flex-direction: column; gap: 10px; overflow-y: auto; scrollbar-width: thin; min-height: 0; min-width: 0; }
+  .j-col.j-left { grid-area: left; } .j-col.j-right { grid-area: right; }
+  .j-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+  .j-panel h4 { display: flex; align-items: center; gap: 7px; font-size: 9.5px; letter-spacing: .1em; color: var(--dim); margin: 0 0 8px; text-transform: uppercase; }
+  .j-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--red); box-shadow: 0 0 6px var(--red); flex: 0 0 auto; }
+  .j-status { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .j-status li { display: flex; justify-content: space-between; align-items: center; font-size: 10.5px; color: var(--fg); }
+  .j-status li span:last-child { font-size: 9px; color: #4ee08a; letter-spacing: .04em; }
+  .j-status li.warn span:last-child { color: #ffb020; }
+
+  .ring-wrap { position: relative; width: 76px; height: 76px; flex: 0 0 auto; }
+  .ring-wrap svg { width: 76px; height: 76px; transform: rotate(-90deg); filter: drop-shadow(0 0 6px var(--glow)); }
+  .ring-wrap .track { fill: none; stroke: rgba(255,40,55,.15); stroke-width: 5; }
+  .ring-wrap .fill { fill: none; stroke: var(--red); stroke-width: 5; stroke-linecap: round; stroke-dasharray: 213.6; stroke-dashoffset: 213.6; transition: stroke-dashoffset .5s ease, stroke .3s; }
+  .ring-wrap .val { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .ring-wrap .val b { font-size: 13px; font-weight: 800; color: #fff; }
+  .ring-wrap .val small { font-size: 7.5px; color: var(--dim); }
+  .j-battery, .j-timer { display: flex; align-items: center; gap: 10px; }
+  .j-battery.charging .ring-wrap .fill, .j-timer.active .ring-wrap .fill { stroke: #4ee08a; }
+  .j-battinfo, .j-nexttask { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .j-battinfo b, .j-nexttask b { font-size: 11px; }
+  .j-battinfo small { font-size: 8px; color: var(--dim); }
+  .j-battinfo i, .j-nexttask span { font-size: 8.5px; color: var(--dim); font-style: normal; letter-spacing: .05em; text-transform: uppercase; }
+  .j-mini-bars { display: flex; gap: 2px; margin-bottom: 2px; }
+  .j-mini-bars i { width: 4px; height: 10px; border-radius: 1px; background: var(--line-strong); display: block; }
+  .j-mini-bars i.on { background: var(--red); box-shadow: 0 0 4px var(--red); }
+
+  .j-net canvas { width: 100%; height: 70px; display: block; opacity: .85; }
+  .j-net > div { display: flex; justify-content: space-between; margin-top: 6px; }
+  .j-net > div > div { display: flex; flex-direction: column; gap: 2px; font-size: 7.5px; color: var(--faint); letter-spacing: .05em; text-transform: uppercase; }
+  .j-net > div > div b { font-size: 10px; color: var(--fg); font-weight: 700; }
+  .j-caption { margin: 6px 0 0; font-size: 8px; color: var(--faint); letter-spacing: .12em; text-align: center; }
+
+  .j-stream { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; max-height: 110px; overflow: hidden; font-family: monospace; }
+  .j-stream li { font-size: 9px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .j-stream li b { color: var(--red); font-weight: 600; }
+
+  .j-loc { display: flex; flex-direction: column; gap: 2px; }
+  .j-loc b { font-size: 11.5px; }
+  .j-loc span { font-size: 9px; color: var(--dim); letter-spacing: .04em; }
+
+  .j-center { grid-area: center; position: relative; min-width: 0; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .j-center .orb-slot { position: relative; z-index: 1; }
+  .j-core-label, .j-core-caption { text-align: center; z-index: 1; }
+  .j-core-label { font-family: var(--display); font-size: 13px; letter-spacing: .14em; color: var(--red); text-shadow: 0 0 12px var(--glow); }
+  .j-core-label span, .j-core-caption span { display: block; font-family: var(--body); font-size: 8.5px; letter-spacing: .1em; color: var(--dim); margin-top: 2px; }
+  .j-core-caption { font-size: 11px; letter-spacing: .1em; color: var(--fg); margin-top: 4px; }
+  .j-center .live { z-index: 1; }
+
+  .j-mini { position: absolute; width: 148px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 9px 11px; z-index: 2; }
+  .j-mini h5 { margin: 0 0 6px; font-size: 8.5px; letter-spacing: .1em; color: var(--dim); text-transform: uppercase; font-weight: 600; }
+  .j-mini-a { top: 0; left: 0; } .j-mini-b { top: 0; right: 0; } .j-mini-c { bottom: 0; left: 0; } .j-mini-d { bottom: 0; right: 0; }
+  .j-mini-a div { display: flex; align-items: baseline; gap: 6px; }
+  .j-mini-a b { font-size: 20px; font-weight: 800; }
+  .j-mini-a span { font-size: 9px; color: var(--dim); }
+  .j-mini-b { display: flex; flex-direction: column; align-items: center; }
+  .j-mini-b .ring-wrap { width: 60px; height: 60px; } .j-mini-b .ring-wrap svg { width: 60px; height: 60px; }
+  .j-mini-b .ring-wrap .fill { stroke-dasharray: 163.4; stroke-dashoffset: 163.4; }
+  .j-mini-b .ring-wrap .val b { font-size: 11px; }
+  .j-mini-c canvas, .j-mini-d canvas { width: 100%; height: 34px; display: block; opacity: .85; }
+  .j-mini-c ul { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+  .j-mini-c li { font-size: 8px; color: var(--dim); display: flex; justify-content: space-between; }
+  .j-mini-d > div { display: flex; justify-content: space-between; margin-top: 4px; font-size: 9px; }
+  .j-mini-d span:first-child { color: #4ee08a; } .j-mini-d span:last-child { color: var(--red); }
+
+  .j-procs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+  .j-procs li { display: flex; align-items: center; gap: 7px; font-size: 10px; color: var(--dim); }
+  .j-procs li i { width: 6px; height: 6px; border-radius: 50%; background: var(--faint); flex: 0 0 auto; }
+  .j-procs li.active { color: var(--fg); }
+  .j-procs li.active i { background: #4ee08a; box-shadow: 0 0 6px #4ee08a; animation: j-blink 1.4s ease-in-out infinite; }
+
+  .j-profile .j-user { display: flex; align-items: center; gap: 10px; }
+  .j-avatar { width: 38px; height: 38px; border-radius: 50%; background: var(--panel-2); border: 1px solid var(--line-strong); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; color: var(--red); flex: 0 0 auto; }
+  .j-user > div:nth-child(2) { flex: 1; min-width: 0; }
+  .j-user b { display: block; font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .j-user span { display: block; font-size: 8.5px; color: var(--dim); }
+  .j-userbtns { display: flex; gap: 6px; }
+  .j-userbtns button { width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--line-strong); background: var(--panel-2); color: var(--dim); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .j-userbtns button:hover { color: var(--red); border-color: var(--red); }
+  .j-userbtns .i { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+
+  .j-quick { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+  .j-quick button { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 9px 4px; border-radius: 9px; border: 1px solid var(--line); background: var(--panel-2); color: var(--dim); cursor: pointer; font-size: 8.5px; letter-spacing: .03em; }
+  .j-quick button:hover { border-color: var(--red); color: var(--fg); }
+  .j-quick button .i { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.7; }
+
+  .j-bottom { grid-area: bottom; display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; font-size: 8.5px; letter-spacing: .1em; color: var(--faint); border-top: 1px solid var(--line); }
+  .j-bottom b { color: var(--dim); font-weight: 600; }
+
+  @media (max-width: 1180px) {
+    body.voice-only .jarvis { grid-template-columns: 200px 1fr 200px; }
+    .j-mini { width: 120px; }
+  }
+  @media (max-width: 900px) {
+    body.voice-only .jarvis { grid-template-columns: 1fr; grid-template-areas: "top" "center" "bottom"; }
+    .j-col.j-left, .j-col.j-right, .j-mini-c, .j-mini-d { display: none; }
+    .j-quote { display: none; }
+  }
+  @media (max-width: 640px) {
+    body.voice-only .jarvis { gap: 8px; }
+    .j-top { flex-wrap: wrap; padding: 8px 12px; gap: 8px; }
+    .j-sysstat, .j-clock { margin-left: 0; }
+    .j-mini-a, .j-mini-b { display: none; }
+    .j-bottom span { display: none; }
+  }
+
   /* ---------- log-in / sign-up: robot close-up beside the form ---------- */
   #modal .box.auth-split { width: min(860px, 100%); display: grid; grid-template-columns: 1fr 1fr; overflow: hidden; }
   .auth-split .auth { align-self: center; }
@@ -592,20 +725,105 @@
   <main id="main">
     <section class="view active" id="homeView" aria-label="Home">
       <div class="art hero-art" aria-hidden="true"></div>
-      <div class="hud-row" id="hudRow" aria-label="Status"></div>
-      <div class="hero">
-        <div class="orb-slot" title="Click to talk"></div>
-        <h1 class="wordmark">ULTRON <b>AI</b></h1>
-        <div class="spaced">Think &nbsp;·&nbsp; Create &nbsp;·&nbsp; Evolve</div>
-        <div class="live" aria-live="polite"></div>
+
+      <div class="jarvis" id="jarvis" aria-hidden="true">
+        <header class="j-top">
+          <div class="j-brand"><svg class="j-logo"><use href="#ultron-logo"/></svg>
+            <div><b>ULTRON</b><span>INTELLIGENCE &nbsp;|&nbsp; CONTROL &nbsp;|&nbsp; EVOLUTION</span></div></div>
+          <div class="j-sysstat"><i></i><div><b>SYSTEM ONLINE</b><span>ALL SYSTEMS OPERATIONAL</span></div></div>
+          <div class="j-clock"><b id="jTime">--:--</b><span id="jDate">--</span></div>
+          <div class="j-quote" id="jQuote">&ldquo;I see. I calculate. I adapt.&rdquo;<i>&mdash; ULTRON</i></div>
+        </header>
+
+        <aside class="j-col j-left">
+          <div class="j-panel">
+            <h4><span class="j-dot"></span>SYSTEM STATUS</h4>
+            <ul class="j-status" id="jStatus"></ul>
+          </div>
+          <div class="j-panel">
+            <h4><span class="j-dot"></span>BATTERY</h4>
+            <div class="j-battery">
+              <div class="ring-wrap j-ring"><svg viewBox="0 0 76 76"><circle class="track" cx="38" cy="38" r="34"/><circle class="fill" cx="38" cy="38" r="34" id="jBattRing"/></svg>
+                <div class="val"><b id="jBattPct">--%</b></div></div>
+              <div class="j-battinfo"><span class="j-mini-bars" id="jBattBars"></span><b id="jBattTime">--</b><small>est. time</small><i id="jBattState">not charging</i></div>
+            </div>
+          </div>
+          <div class="j-panel">
+            <h4><span class="j-dot"></span>GLOBAL NETWORK</h4>
+            <div class="j-net"><canvas id="jNetMap" width="140" height="70"></canvas>
+              <div><div>SATELLITES<b>12 / 12</b></div><div>CONNECTIONS<b id="jConns">384 ONLINE</b></div><div>LATENCY<b id="jLatency">0.02 MS</b></div></div></div>
+            <p class="j-caption">GLOBAL REACH</p>
+          </div>
+          <div class="j-panel">
+            <h4><span class="j-dot"></span>DATA STREAM</h4>
+            <ul class="j-stream" id="jStream"></ul>
+          </div>
+          <div class="j-panel">
+            <h4><span class="j-dot"></span>LOCATION</h4>
+            <div class="j-loc"><b id="jLocName">Locating…</b><span id="jLocCoord">--</span></div>
+          </div>
+        </aside>
+
+        <div class="j-center">
+          <div class="j-mini j-mini-a">
+            <h5>CORE TEMP</h5>
+            <div><b id="jTemp">--°</b><span id="jTempCond">--</span></div>
+          </div>
+          <div class="j-mini j-mini-b">
+            <h5>SYSTEM LOAD</h5>
+            <div class="ring-wrap j-loadring"><svg viewBox="0 0 60 60"><circle class="track" cx="30" cy="30" r="26"/><circle class="fill" cx="30" cy="30" r="26" id="jLoadRing"/></svg>
+              <div class="val"><b id="jLoadPct">--%</b></div></div>
+          </div>
+          <div class="j-mini j-mini-c">
+            <h5>PROCESSING&hellip;</h5>
+            <canvas id="jProcWave" width="140" height="40"></canvas>
+            <ul id="jProcList"></ul>
+          </div>
+          <div class="j-mini j-mini-d">
+            <h5>NETWORK TRAFFIC</h5>
+            <canvas id="jTrafficWave" width="140" height="40"></canvas>
+            <div><span id="jUp">↑ --</span><span id="jDown">↓ --</span></div>
+          </div>
+
+          <div class="j-core-label">ULTRON CORE<span>NEURAL PROCESSOR</span></div>
+          <div class="orb-slot" title="Click to talk"></div>
+          <div class="live" aria-live="polite"></div>
+          <div class="j-core-caption">ULTRON<span>YOUR INTELLIGENT INTERFACE</span></div>
+        </div>
+
+        <aside class="j-col j-right">
+          <div class="j-panel">
+            <h4><span class="j-dot"></span>TIMER</h4>
+            <div class="j-timer">
+              <div class="ring-wrap j-ring"><svg viewBox="0 0 76 76"><circle class="track" cx="38" cy="38" r="34"/><circle class="fill" cx="38" cy="38" r="34" id="jTimerRing"/></svg>
+                <div class="val"><b id="jTimerVal">--:--</b><small id="jTimerSub">rest</small></div></div>
+              <div class="j-nexttask"><span>NEXT TASK</span><b id="jTimerLabel">No timer running</b></div>
+            </div>
+          </div>
+          <div class="j-panel">
+            <h4><span class="j-dot"></span>ACTIVE PROCESSES</h4>
+            <ul class="j-procs" id="jProcs"></ul>
+          </div>
+          <div class="j-panel j-profile">
+            <h4><span class="j-dot"></span>USER PROFILE</h4>
+            <div class="j-user">
+              <div class="j-avatar" id="jAvatar">?</div>
+              <div><b id="jUserName">Guest</b><span id="jUserRole">Not signed in</span></div>
+              <div class="j-userbtns">
+                <button data-act="settings" title="Settings"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/></svg></button>
+                <button id="jAuthBtn" title="Log in">⏻</button>
+              </div>
+            </div>
+          </div>
+          <div class="j-panel">
+            <h4><span class="j-dot"></span>QUICK ACCESS</h4>
+            <div class="j-quick" id="jQuick"></div>
+          </div>
+        </aside>
+
+        <footer class="j-bottom"><span>A BETTER TOMORROW &mdash; POWERED BY CLAUDE</span><b>ULTRON v1.0 &nbsp;·&nbsp; ALWAYS LISTENING</b></footer>
       </div>
-      <div class="greet"><h2 id="greeting">Good morning</h2><p>What would you like to do today?</p></div>
-      <div class="actions">
-        <button class="action" data-act="chat"><svg class="i" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 10h.01M12 10h.01M16 10h.01"/></svg><b>Chat</b><span>Ask anything, get instant answers.</span><svg class="i go" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
-        <button class="action" data-act="generate"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg><b>Generate</b><span>Create images, art, and more.</span><svg class="i go" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
-        <button class="action" data-act="code"><svg class="i" viewBox="0 0 24 24"><path d="m9 8-4 4 4 4M15 8l4 4-4 4"/></svg><b>Code</b><span>Write, debug, explain code.</span><svg class="i go" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
-        <button class="action" data-act="animate"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="m10 9 5 2.5-5 2.5z"/><path d="M3 20h18"/></svg><b>Animate</b><span>Turn ideas into motion.</span><svg class="i go" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
-      </div>
+
       <div class="composer-slot" id="homeComposerSlot"></div>
       <div class="chips" id="chips"></div>
       <section id="upsell" hidden>
@@ -614,6 +832,14 @@
           <button class="pill primary" data-act="signup">Create free account</button></div>
         <ul><li>Image generation (5 every 5 hours)</li><li>Levels 3 to 5 and model choice</li><li>Pictures, PDFs, files and videos</li><li>Saved chat history</li></ul>
       </section>
+      <h1 class="wordmark" hidden>ULTRON <b>AI</b></h1>
+      <div class="greet" hidden><h2 id="greeting">Good morning</h2><p>What would you like to do today?</p></div>
+      <div class="actions" hidden>
+        <button class="action" data-act="chat"><svg class="i" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 10h.01M12 10h.01M16 10h.01"/></svg><b>Chat</b><span>Ask anything, get instant answers.</span><svg class="i go" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+        <button class="action" data-act="generate"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg><b>Generate</b><span>Create images, art, and more.</span><svg class="i go" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+        <button class="action" data-act="code"><svg class="i" viewBox="0 0 24 24"><path d="m9 8-4 4 4 4M15 8l4 4-4 4"/></svg><b>Code</b><span>Write, debug, explain code.</span><svg class="i go" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+        <button class="action" data-act="animate"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="m10 9 5 2.5-5 2.5z"/><path d="M3 20h18"/></svg><b>Animate</b><span>Turn ideas into motion.</span><svg class="i go" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+      </div>
       <footer class="foot spaced" style="font-size:10px"><span style="color:var(--red)">Ultron AI</span> — powered by Claude</footer>
     </section>
 
