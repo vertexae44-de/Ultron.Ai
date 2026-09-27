@@ -31,6 +31,16 @@ const HUD = {
     this.startStream();
     this.startNetMap();
     this.startSim();
+    this.buildTicks();
+  },
+
+  // ---------- decorative tick-bar strips (Global Network / Data Stream / Quick Access) ----------
+  buildTicks() {
+    document.querySelectorAll(".j-ticks").forEach((box) => {
+      if (box.id === "jAccessTicks") return;
+      box.innerHTML = "";
+      for (let i = 0; i < 8; i++) box.append(el("i", { class: Math.random() > 0.25 ? "on" : "" }));
+    });
   },
 
   log(line) {
@@ -57,13 +67,9 @@ const HUD = {
         const pct = Math.round(b.level * 100);
         if ($("jBattPct")) $("jBattPct").textContent = pct + "%";
         setRing($("jBattRing"), b.level, C);
-        const bars = $("jBattBars");
-        if (bars) {
-          bars.innerHTML = "";
-          for (let i = 0; i < 5; i++) bars.append(el("i", { class: (i < Math.round(b.level * 5)) ? "on" : "" }));
-        }
-        if ($("jBattState")) $("jBattState").textContent = b.charging ? "charging" : "on battery";
+        if ($("jBattState")) $("jBattState").textContent = (b.charging ? "⚡ charging" : "⚡ not charging");
         $("jarvis")?.querySelector(".j-battery")?.classList.toggle("charging", b.charging);
+        this._drawBattWave(b.level);
         const secs = b.charging ? b.chargingTime : b.dischargingTime;
         if ($("jBattTime")) $("jBattTime").textContent = (secs && isFinite(secs) && secs > 0)
           ? `${Math.floor(secs / 3600)}h ${Math.round((secs % 3600) / 60)}m` : (b.charging ? "full soon" : "--");
@@ -73,6 +79,20 @@ const HUD = {
       draw();
       b.addEventListener("levelchange", draw); b.addEventListener("chargingchange", draw);
     } catch {}
+  },
+
+  _drawBattWave(level) {
+    const cv = $("jBattWave"); if (!cv) return;
+    const ctx = cv.getContext("2d");
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    ctx.fillStyle = "#ff1f2d";
+    const bars = 12;
+    for (let i = 0; i < bars; i++) {
+      const h = 3 + Math.abs(Math.sin(i * 1.7 + level * 10)) * (cv.height - 4) * (0.3 + level * 0.7);
+      ctx.globalAlpha = i / bars < level ? 0.9 : 0.25;
+      ctx.fillRect(i * (cv.width / bars), cv.height - h, (cv.width / bars) - 1, h);
+    }
+    ctx.globalAlpha = 1;
   },
 
   // ---------- temperature (reused for the "core temp" mini panel) ----------
@@ -98,27 +118,44 @@ const HUD = {
   // ---------- location ----------
   startLocation() {
     if (!$("jLocName")) return;
+    this._drawLocMap(0.5, 0.5);
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
     const city = tz.split("/").pop()?.replace(/_/g, " ") || "Unknown";
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition((pos) => {
         $("jLocName").textContent = city;
-        $("jLocCoord").textContent = `${pos.coords.latitude.toFixed(3)}°, ${pos.coords.longitude.toFixed(3)}°`;
+        $("jLocCoord").textContent = `${pos.coords.latitude.toFixed(4)}°, ${pos.coords.longitude.toFixed(4)}°`;
+        this._drawLocMap((pos.coords.longitude + 180) / 360, (90 - pos.coords.latitude) / 180);
         this.log(`Location fixed near ${city}.`);
       }, () => { $("jLocName").textContent = city; $("jLocCoord").textContent = tz; }, { timeout: 5000 });
     } else { $("jLocName").textContent = city; $("jLocCoord").textContent = tz; }
   },
 
+  _drawLocMap(fx, fy) {
+    const cv = $("jLocMap"); if (!cv) return;
+    const ctx = cv.getContext("2d");
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    ctx.strokeStyle = "rgba(255,40,55,.35)"; ctx.lineWidth = 1;
+    for (let i = 1; i < 4; i++) {
+      ctx.beginPath(); ctx.moveTo(0, i * cv.height / 4); ctx.lineTo(cv.width, i * cv.height / 4); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(i * cv.width / 4, 0); ctx.lineTo(i * cv.width / 4, cv.height); ctx.stroke();
+    }
+    const x = fx * cv.width, y = fy * cv.height;
+    ctx.strokeStyle = "#ff1f2d"; ctx.beginPath(); ctx.arc(x, y, 6, 0, 7); ctx.stroke();
+    ctx.fillStyle = "#ff1f2d"; ctx.beginPath(); ctx.arc(x, y, 2.4, 0, 7); ctx.fill();
+  },
+
   // ---------- timer ----------
   tickTimer() {
     const t = typeof nearestTimer === "function" ? nearestTimer() : null;
-    const ring = $("jTimerRing");
+    const ring = $("jTimerRing"), stopBtn = $("jTimerStop");
     if (!t) {
       if ($("jTimerVal")) $("jTimerVal").textContent = "--:--";
       if ($("jTimerSub")) $("jTimerSub").textContent = "idle";
       if ($("jTimerLabel")) $("jTimerLabel").textContent = "No timer running";
       setRing(ring, 0, C);
       $("jarvis")?.querySelector(".j-timer")?.classList.remove("active");
+      if (stopBtn) stopBtn.hidden = true;
       return;
     }
     const left = Math.max(0, t.endsAt - Date.now());
@@ -127,6 +164,11 @@ const HUD = {
     if ($("jTimerLabel")) $("jTimerLabel").textContent = t.label || "Timer running";
     setRing(ring, left / (t.total * 1000), C);
     $("jarvis")?.querySelector(".j-timer")?.classList.add("active");
+    if (stopBtn && typeof timers !== "undefined") {
+      stopBtn.hidden = false;
+      let id = null; for (const [tid, tv] of timers) if (tv === t) id = tid;
+      stopBtn.onclick = () => { if (id != null && typeof removeTimer === "function") removeTimer(id); };
+    }
   },
 
   // ---------- system status (real, browser-observable signals) ----------
@@ -177,13 +219,18 @@ const HUD = {
   // ---------- user profile ----------
   buildProfile() {
     const u = typeof App !== "undefined" ? App.user : null;
-    if ($("jAvatar")) $("jAvatar").textContent = u ? (u.username || u.name || "?")[0].toUpperCase() : "?";
     if ($("jUserName")) $("jUserName").textContent = u ? (u.name || u.username) : "Guest";
     if ($("jUserRole")) $("jUserRole").textContent = u ? `@${u.username}` : "Not signed in";
     const btn = $("jAuthBtn");
     if (btn) { btn.dataset.act = u ? "logout" : "login"; btn.title = u ? "Log out" : "Log in"; }
     if ($("jAuthLabel")) $("jAuthLabel").textContent = u ? "Log out" : "Log in";
-    if ($("jAccess")) $("jAccess").textContent = u ? "MEMBER · FULL" : "GUEST";
+    if ($("jAccess")) $("jAccess").textContent = u ? "FULL" : "GUEST";
+    const ticks = $("jAccessTicks");
+    if (ticks) {
+      ticks.innerHTML = "";
+      const lit = u ? 8 : 3;
+      for (let i = 0; i < 8; i++) ticks.append(el("i", { class: i < lit ? "on" : "" }));
+    }
   },
 
   // ---------- quick access ----------
@@ -195,7 +242,9 @@ const HUD = {
       ["hologram", "hologram", "Hologram"],
       ["media", "voice", "Player"],
       ["files", "file", "Files"],
+      ["history", "history", "History"],
       ["settings", "model", "Settings"],
+      ["sleep", "power", "Power"],
     ];
     box.innerHTML = "";
     for (const [act, ic, label] of tiles) box.append(el("button", { type: "button", "data-act": act },

@@ -23,6 +23,8 @@ const ICONS = {
   video: '<rect x="3" y="5" width="18" height="12" rx="2"/><path d="m10 9 5 2.5-5 2.5z"/><path d="M3 20h18"/>',
   model: '<path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="m3 7 9 5 9-5M12 12v10"/>',
   hologram: '<path d="M12 2v6M12 22v-6M4.9 4.9l4.2 4.2M14.9 14.9l4.2 4.2M4.9 19.1l4.2-4.2M14.9 9.1l4.2-4.2"/><circle cx="12" cy="12" r="3.4"/>',
+  history: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>',
+  power: '<path d="M12 3v7"/><path d="M6.3 6.3a9 9 0 1 0 11.4 0"/>',
 };
 const icon = (name, cls = "i") => `<svg class="${cls}" viewBox="0 0 24 24">${ICONS[name]}</svg>`;
 const frag = (html) => document.createRange().createContextualFragment(html);
@@ -86,6 +88,7 @@ function act(name) {
     case "login": Account.open("login"); break;
     case "logout": Account.logout(); break;
     case "media": View.setChrome(true); $("mediaPlayer")?.scrollIntoView({ behavior: "smooth", block: "center" }); break;
+    case "sleep": Voice.run("wake_word", "off"); toast("Wake word off. Click the orb or say “Ultron” to talk."); break;
   }
 }
 document.addEventListener("click", (e) => {
