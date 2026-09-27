@@ -155,11 +155,6 @@ const sparks = Array.from({ length: 220 }, () => ({
   a: Math.random() * 6.283, d: 1.3 + Math.random() * 1.6, s: .2 + Math.random() * .8,
   tilt: (Math.random() - .5) * 1.2,
 }));
-const shards = Array.from({ length: 28 }, () => ({     // bright glass chips just inside the rim
-  r: .84 + Math.random() * .1, a: Math.random() * 6.283, len: .03 + Math.random() * .1,
-  w: 1.2 + Math.random() * 2.4, b: .08 + Math.random() * .22,
-}));
-const ORBIT_TILTS = [-.6, .62, -.08];
 
 let t = 0, energy = 0, spin = 0, orbX = null, orbY = null, orbR = null;
 function frame() {
@@ -193,115 +188,37 @@ function frame() {
   const cx = orbX, cy = orbY, R = orbR;
   if (!layout.visible) { requestAnimationFrame(frame); return; }
 
-  // Glass-atom orb. Every layer is drawn additively over a canvas that only fades 30% per frame,
-  // so anything static builds up to ~3x its alpha -- the alphas here are deliberately low.
-  const lite = (k) => rgb(look.core.map(c => c + (255 - c) * k));
-  const E = energy;
-
-  // soft outer halo, and a faint dotted ring just outside the glass
-  const halo = ctx.createRadialGradient(cx, cy, R * .5, cx, cy, R * 1.9);
-  halo.addColorStop(0, `rgba(${rgb(look.shell, -40)},.05)`);
-  halo.addColorStop(1, `rgba(${rgb(look.shell, -70)},0)`);
-  ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(cx, cy, R * 1.9, 0, 6.283); ctx.fill();
-  ctx.setLineDash([1.5 * DPR, 6 * DPR]);
-  ctx.strokeStyle = `rgba(${rgb(look.core)},.1)`; ctx.lineWidth = 1.2 * DPR;
-  ctx.beginPath(); ctx.arc(cx, cy, R * 1.2, 0, 6.283); ctx.stroke();
-  ctx.setLineDash([]);
-
-  // the core: a small white star inside a red glow that fades out well before the glass edge
-  const coreR = R * (.6 + E * .45);
+  const coreR = R * (1.1 + energy * .6);
   const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, coreR);
-  g.addColorStop(0, "rgba(255,255,255,1)");
-  g.addColorStop(.05, `rgba(${lite(.8)},.9)`);
-  g.addColorStop(.16, `rgba(${rgb(look.core)},.42)`);
-  g.addColorStop(.45, `rgba(${rgb(look.shell, -30)},.1)`);
-  g.addColorStop(1, `rgba(${rgb(look.shell, -60)},0)`);
+  g.addColorStop(0, `rgba(${rgb(look.core.map(c => c + (255 - c) * .6))},.95)`);
+  g.addColorStop(.12, `rgba(${rgb(look.core)},.7)`);
+  g.addColorStop(.45, `rgba(${rgb(look.shell, -40)},.18)`);
+  g.addColorStop(1, `rgba(${rgb(look.shell, -70)},0)`);
   ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, coreR, 0, 6.283); ctx.fill();
 
-  // concentric dashed rings inside the glass, slowly counter-rotating like a scanner
-  for (let i = 0; i < 4; i++) {
-    ctx.save(); ctx.translate(cx, cy);
-    ctx.rotate(t * (i % 2 ? -.09 : .07) * (1 + E * 3) + i);
-    ctx.setLineDash([R * (.015 + i * .012), R * (.025 + i * .01)]);
-    ctx.strokeStyle = `rgba(${rgb(look.core)},${.07 + E * .1})`;
-    ctx.lineWidth = (i === 3 ? 2 : 1) * DPR;
-    ctx.beginPath(); ctx.arc(0, 0, R * (.26 + i * .16), 0, 6.283); ctx.stroke();
-    ctx.restore();
-  }
-  ctx.setLineDash([]);
-
-  // the particle shell: fine points on a rotating sphere, the texture inside the glass
   const cs = Math.cos(spin), sn = Math.sin(spin), ct = Math.cos(.35), st = Math.sin(.35);
   for (const p of pts) {
-    const wob = 1 + E * look.wobA * Math.sin(p.seed + t * look.wobF + p.y * 5)
-              + (look.jitter > .001 ? (Math.random() - .5) * look.jitter * (1 + E * 3) : 0);
+    const wob = 1 + energy * look.wobA * Math.sin(p.seed + t * look.wobF + p.y * 5)
+              + (look.jitter > .001 ? (Math.random() - .5) * look.jitter * (1 + energy * 3) : 0);
     let x = p.x * cs - p.z * sn, z = p.x * sn + p.z * cs, y = p.y;
     const y2 = y * ct - z * st; z = y * st + z * ct; y = y2;
     const persp = 1.8 / (2.6 - z);
-    const sx = cx + x * R * .92 * wob * persp, sy = cy + y * R * .92 * wob * persp;
-    const a = (.04 + .26 * (z + 1) / 2) * (.7 + E * .7);
-    const size = (.7 + (z + 1) * .45) * DPR;
+    const sx = cx + x * R * wob * persp, sy = cy + y * R * wob * persp;
+    const a = (.15 + .55 * (z + 1) / 2) * (.6 + energy * .6);
+    const size = (1 + (z + 1)) * DPR * .8;
     ctx.fillStyle = `rgba(${rgb(look.shell, z * 60)},${a})`;
     ctx.fillRect(sx, sy, size, size);
   }
 
-  // bright glass chips just inside the rim
-  const chipSpin = spin * .5;
-  for (const s of shards) {
-    ctx.strokeStyle = `rgba(${lite(.35)},${s.b * (.8 + E)})`;
-    ctx.lineWidth = s.w * DPR;
-    ctx.beginPath(); ctx.arc(cx, cy, R * s.r, s.a + chipSpin, s.a + chipSpin + s.len); ctx.stroke();
-  }
-
-  // the glass itself: a fresnel glow that brightens toward the edge, then a crisp rim line
-  const fr = ctx.createRadialGradient(cx, cy, R * .78, cx, cy, R * 1.04);
-  fr.addColorStop(0, `rgba(${rgb(look.shell, -30)},0)`);
-  fr.addColorStop(.72, `rgba(${rgb(look.core)},.06)`);
-  fr.addColorStop(.86, `rgba(${lite(.3)},.14)`);
-  fr.addColorStop(1, `rgba(${rgb(look.core)},0)`);
-  ctx.fillStyle = fr; ctx.beginPath(); ctx.arc(cx, cy, R * 1.04, 0, 6.283); ctx.fill();
-  ctx.strokeStyle = `rgba(${lite(.45)},${.14 + E * .1})`; ctx.lineWidth = 1.3 * DPR;
-  ctx.beginPath(); ctx.arc(cx, cy, R, 0, 6.283); ctx.stroke();
-
-  // specular glint on the glass, upper left
-  ctx.lineCap = "round";
-  const sp = ctx.createLinearGradient(cx - R, cy - R, cx, cy);
-  sp.addColorStop(0, "rgba(255,255,255,.2)"); sp.addColorStop(1, "rgba(255,255,255,0)");
-  ctx.strokeStyle = sp;
-  ctx.lineWidth = R * .035; ctx.beginPath(); ctx.arc(cx, cy, R * .9, Math.PI * 1.06, Math.PI * 1.42); ctx.stroke();
-  ctx.lineWidth = R * .014; ctx.beginPath(); ctx.arc(cx, cy, R * .81, Math.PI * 1.13, Math.PI * 1.3); ctx.stroke();
-  ctx.lineCap = "butt";
-
-  // cross-shaped lens flare through the core -- the vertical spike reaches well past the glass
-  ctx.save(); ctx.translate(cx, cy);
-  const fa = .14 + E * .2;
-  const lensFlare = (len, horiz) => {
-    const lg = horiz ? ctx.createLinearGradient(-len, 0, len, 0) : ctx.createLinearGradient(0, -len, 0, len);
-    lg.addColorStop(0, "rgba(255,255,255,0)"); lg.addColorStop(.5, `rgba(255,255,255,${fa})`); lg.addColorStop(1, "rgba(255,255,255,0)");
-    ctx.fillStyle = lg;
-    if (horiz) ctx.fillRect(-len, -.6 * DPR, len * 2, 1.2 * DPR); else ctx.fillRect(-.6 * DPR, -len, 1.2 * DPR, len * 2);
-  };
-  lensFlare(R * 2.2, true); lensFlare(R * 2.9, false);
-  ctx.restore();
-
-  // orbit rings: large, tilted ellipses with a soft glow, each carrying a few bright bodies
+  ctx.lineWidth = 1.2 * DPR;
   for (let k = 0; k < 3; k++) {
-    ctx.save(); ctx.translate(cx, cy);
-    ctx.rotate(ORBIT_TILTS[k] + Math.sin(spin * .4 + k * 2) * .18);
-    const rx = R * (1.58 + k * .08 + E * .12), ry = R * (.6 + k * .06);
-    ctx.strokeStyle = `rgba(${rgb(look.core)},${.03 + E * .04})`; ctx.lineWidth = 5 * DPR;
-    ctx.beginPath(); ctx.ellipse(0, 0, rx, ry, 0, 0, 6.283); ctx.stroke();
-    ctx.strokeStyle = `rgba(${lite(.25)},${.16 + E * .22})`; ctx.lineWidth = 1.1 * DPR;
-    ctx.beginPath(); ctx.ellipse(0, 0, rx, ry, 0, 0, 6.283); ctx.stroke();
-    const phase = t * (.35 + k * .1) * (1 + E * 2) + k * 2.1;
-    [[0, 4.5], [2.3, 3], [4.2, 2.2]].forEach(([off, size]) => {
-      const nx = Math.cos(phase + off) * rx, ny = Math.sin(phase + off) * ry, nr = size * DPR;
-      const ng = ctx.createRadialGradient(nx, ny, 0, nx, ny, nr * 2);
-      ng.addColorStop(0, "rgba(255,255,255,.95)");
-      ng.addColorStop(.3, `rgba(${lite(.3)},.8)`);
-      ng.addColorStop(1, `rgba(${rgb(look.core)},0)`);
-      ctx.fillStyle = ng; ctx.beginPath(); ctx.arc(nx, ny, nr * 2, 0, 6.283); ctx.fill();
-    });
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(spin * (k % 2 ? -1.4 : 1) + k * 1.05);
+    ctx.strokeStyle = `rgba(${rgb(look.shell, -5)},${.18 + energy * .3})`;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, R * (1.25 + k * .12 + energy * .2), R * (.35 + k * .1), 0, 0, 6.283);
+    ctx.stroke();
     ctx.restore();
   }
 
