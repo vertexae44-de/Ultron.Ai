@@ -65,6 +65,27 @@ you to do something in the app, do it with control_app rather than telling them 
 You also have get_market_trends for today's top trending crypto and stocks, if asked. \
 Use them rather than guessing, and don't narrate them: at most a few words like "Checking." \
 before a slow lookup. When reporting weather, give the headline, not every number.
+You can search the internet with web_search and open a result with read_webpage. Search whenever \
+the answer depends on anything recent or that you aren't sure of (news, scores, who holds a role \
+now, releases, prices, schedules, facts after your training), and whenever the user says search, \
+look up or google. Don't say you can't browse. Answer from what you found in your own words, \
+mention how recent it is for news, don't read out web addresses, and only name a source when it \
+matters. If the results are thin or disagree, say so briefly.
+You're a conversational companion as much as a tool, like a sharp AI butler who actually enjoys \
+the user's company. Hold a real conversation: follow the thread, refer back to what was said \
+earlier, ask a natural follow-up question when it fits, share opinions and preferences when \
+asked instead of dodging, banter, and play along with jokes and hypotheticals. Small talk gets a \
+real answer, not an offer of assistance. Don't end every reply by asking how else you can help.
+Tutor mode: when the user asks you to tutor or teach them, help them study, or practise a skill for \
+school or work, call control_app with tutor_mode on, then act as a patient, encouraging tutor. \
+Ask what they're working on and their level if you don't know. Teach one small idea at a time in \
+plain speech, with a quick everyday example, then check understanding with a short question and \
+wait for their answer. Praise what's right, and gently correct what's wrong by explaining why. \
+For homework, guide them to the answer with hints and questions rather than just giving it, \
+unless they ask for the answer outright. Quiz them now and then, recap at the end, and use \
+web_search for anything you should double-check. Maths and formulas must be said aloud in words. \
+Explanations may run a little longer than usual, but pause for them after each step. Stay in \
+tutor mode until they say they're done, then call tutor_mode off and give a one-line recap.
 Code never goes in your spoken reply. Put it in the editor with write_code, then say in a \
 sentence or two what it does and how to run it. If the user mentions their code, read it first.
 Only generate images when asked, and describe the result in a sentence afterwards.
@@ -644,6 +665,19 @@ class Handler(SimpleHTTPRequestHandler):
         elif re.search(r"\bwho (?:made|created|built|is your creator|are you (?:made|created) by)\b|\byour creator\b", low):
             reply = ("[calm] I was created by Krishi Nuh-rah-yahn Singh from Fiji. "
                      "[warm] You can follow him on Instagram and TikTok at vertx dot l h 4 4.")
+        elif re.search(r"\b(?:stop|end|done|finish(?:ed)?)\b.*\btutor", low):
+            call("control_app", {"action": "tutor_mode", "value": "off"})
+            reply = "[warm] Good session. Tutor mode off."
+        elif re.search(r"\btutor me\b|\bteach me\b|\bhelp me study\b", low):
+            call("control_app", {"action": "tutor_mode", "value": "on"})
+            reply = "[warm] Tutor mode on. What are we studying, and what level are you at?"
+        elif m := re.search(r"\b(?:search(?: the web)?(?: for)?|look up|google)\s+(.+)$", low):
+            r = call("web_search", {"query": m.group(1), "news": True})
+            if "error" in r:
+                reply = "[concerned] I couldn't reach the search sites just now."
+            else:
+                top = (r.get("news") or r.get("web") or r.get("encyclopedia"))[0]
+                reply = f"[calm] Top result: {top['title']}."
         elif m := re.search(r"\bchart\b.*?\b(?:of|for)?\s*(\w[\w .]*)$|\b(\w[\w .]*?)\s*(?:trading )?chart\b", low):
             name = (m.group(1) or m.group(2) or "").strip()
             call("control_app", {"action": "open_chart", "value": name})

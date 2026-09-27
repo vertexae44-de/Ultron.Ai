@@ -135,11 +135,13 @@ const VOICE_HELP = [
   ["Scrolling", "“scroll up”, “scroll down”, “go to the top”"],
   ["Voice", "“go to sleep”, “mute”, “unmute”, “turn off clapping”, “single clap”"],
   ["Account", "“log in”, “sign up”, “log out”"],
-  ["Anything else", "Just ask — Ultron can also operate the app itself."],
+  ["Search", "“search for …”, “look up …”, “what's the latest on …”, “who won …”"],
+  ["Anything else", "Just ask — or just talk. Ultron can chat, and operate the app itself."],
 ];
 
 const Voice = {
   followUp: store.get("followUp", true),
+  tutor: false,   // set by Claude via control_app tutor_mode; cleared with a new chat
   clapMode: store.get("clap", "double"),          // off | single | double
   clapSense: store.get("clapSense", "normal"),    // low | normal | high
 
@@ -185,6 +187,10 @@ const Voice = {
       case "show_home": Modal.close(); Chats.closeDrawer(); View.show("home"); return "Home.";
       case "show_sidebar": View.setChrome(true); return "Here you go.";
       case "hide_sidebar": View.setChrome(false); return "Hidden.";
+      case "tutor_mode":
+        this.tutor = value !== "off";
+        toast(this.tutor ? "Tutor mode on. Say “stop tutoring” when you're done." : "Tutor mode off.");
+        return "";
       case "show_chat": Modal.close(); View.show("chat"); return Chat.history.length ? "" : "No messages yet. Go ahead.";
       case "show_images":
         if (!Account.require("see your images", "images")) return "You'll need an account for images.";

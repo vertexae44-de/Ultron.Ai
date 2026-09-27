@@ -7,13 +7,18 @@ under data/images and served by the server.
 """
 
 import base64
+import html
+import ipaddress
 import json
 import os
+import re
+import socket
 import threading
 import time
 import urllib.parse
 import urllib.request
 import uuid
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -201,6 +206,8 @@ APP_ACTIONS = {
                      "control a separate phone or TV from here; say so plainly if asked.",
     "pause_video": "pause the YouTube video", "resume_video": "resume the YouTube video",
     "next_video": "skip to the next YouTube search result", "close_video": "close the YouTube player",
+    "tutor_mode": "value 'on' or 'off'. Turn it on when the user asks you to tutor or teach them, or to study "
+                  "or practise something together; off when they say they're done. It shows Tutor Mode on screen.",
 }
 TOOLS.append({
     "name": "control_app",
@@ -219,6 +226,35 @@ TOOLS.append({
         "required": ["action"],
     },
 })
+TOOLS.extend([
+    {
+        "name": "web_search",
+        "description": (
+            "Search the internet (free, no key). Use it for anything current, time-sensitive or that you're "
+            "not sure of: news, sports results, recent events, who currently holds a role, new releases, "
+            "prices, opening hours, or anything after your training data. Also use it whenever the user asks "
+            "you to search, look up or google something. Returns web results, recent news headlines with "
+            "dates, and encyclopedia matches. Open a result with read_webpage if the snippets aren't enough."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "What to search for, as you'd type it into a search engine."},
+                "news": {"type": "boolean", "description": "True for current events and headlines, to include recent news."},
+            },
+            "required": ["query"],
+        },
+    },
+    {
+        "name": "read_webpage",
+        "description": "Read the main text of a public web page, e.g. a result from web_search, to get details the snippet left out.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"url": {"type": "string", "description": "Full http(s) URL."}},
+            "required": ["url"],
+        },
+    },
+])
 for _tool in TOOLS:
     _tool["eager_input_streaming"] = True  # inputs are validated in each handler
 
@@ -781,7 +817,169 @@ def _control_app(args, ctx):
     return {"done": True, "action": action, "value": value}
 
 
+# ---------- web search (free sources, no API key) ----------
+# DuckDuckGo's HTML page for web results, Google News RSS for headlines, Wikipedia's API for
+# encyclopedia matches. Each is tried independently, so one being down or changing its markup
+# still leaves the others.
+
+BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+_TAG = re.compile(r"<[^>]+>")
+_WS = re.compile(r"\s+")
+
+
+def _plain(fragment: str) -> str:
+    return _WS.sub(" ", html.unescape(_TAG.sub(" ", fragment))).strip()
+
+
+def _check_public_url(url: str) -> str:
+    """Only fetch public http(s) pages -- never this machine or the local network."""
+    parts = urllib.parse.urlsplit(url)
+    if parts.scheme not in ("http", "https") or not parts.hostname:
+        raise ToolError("Only http and https web pages can be read.")
+    try:
+        infos = socket.getaddrinfo(parts.hostname, parts.port or (443 if parts.scheme == "https" else 80))
+    except OSError:
+        raise ToolError(f"Couldn't find {parts.hostname}.") from None
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0].split("%")[0])
+        if not ip.is_global:
+            raise ToolError("That address isn't a public web page.")
+    return url
+
+
+class _SafeRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        _check_public_url(newurl)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+_page_opener = urllib.request.build_opener(_SafeRedirect)
+
+
+def _fetch_text(url: str, data: bytes | None = None, opener=None, limit: int = 1_500_000) -> tuple[str, str]:
+    req = urllib.request.Request(url, data=data, headers={"User-Agent": BROWSER_UA, "Accept-Language": "en-US,en;q=0.8"})
+    with (opener or urllib.request.build_opener()).open(req, timeout=8) as resp:
+        body = resp.read(limit)
+        return body.decode(resp.headers.get_content_charset() or "utf-8", "replace"), resp.headers.get_content_type()
+
+
+def _ddg_results(page: str, limit: int = 6) -> list[dict]:
+    anchors = [(m.start(), m.group(1), m.group(2)) for m in
+               re.finditer(r'<a\b([^>]*\bclass="[^"]*\bresult__a\b[^"]*"[^>]*)>(.*?)</a>', page, re.S)]
+    snippets = [(m.start(), m.group(1)) for m in
+                re.finditer(r'<(?:a|div)\b[^>]*\bclass="[^"]*\bresult__snippet\b[^"]*"[^>]*>(.*?)</(?:a|div)>', page, re.S)]
+    out = []
+    for i, (pos, attrs, title) in enumerate(anchors):
+        href = re.search(r'\bhref="([^"]+)"', attrs)
+        if not href:
+            continue
+        link = html.unescape(href.group(1))
+        if link.startswith("//"):
+            link = "https:" + link
+        target = urllib.parse.parse_qs(urllib.parse.urlsplit(link).query).get("uddg")
+        if target:
+            link = target[0]
+        if "duckduckgo.com/y.js" in link or not link.startswith("http"):
+            continue  # ads and internal links
+        end = anchors[i + 1][0] if i + 1 < len(anchors) else len(page)
+        snip = next((s for p, s in snippets if pos < p < end), "")
+        out.append({"title": _plain(title), "url": link, "snippet": _plain(snip)[:300]})
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _rss_items(xml_text: str, limit: int = 6) -> list[dict]:
+    """Items from an RSS feed (Bing web/news search, Google News)."""
+    out = []
+    for item in ET.fromstring(xml_text.strip()).iter("item"):
+        title = _plain(item.findtext("title") or "")
+        source = _plain(item.findtext("source") or "")
+        if source and title.endswith(" - " + source):
+            title = title[: -len(source) - 3]
+        row = {"title": title, "url": (item.findtext("link") or "").strip()}
+        if snippet := _plain(item.findtext("description") or "")[:300]:
+            row["snippet"] = snippet
+        if source:
+            row["source"] = source
+        if published := (item.findtext("pubDate") or "").strip():
+            row["published"] = published
+        if row["title"] and row["url"].startswith("http"):
+            out.append(row)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _merge(*lists: list[dict], limit: int) -> list[dict]:
+    seen, out = set(), []
+    for row in (r for lst in lists for r in lst):
+        key = row["url"].split("#")[0].rstrip("/").lower()
+        if key not in seen:
+            seen.add(key)
+            out.append(row)
+    return out[:limit]
+
+
+def _wiki_results(data: dict, limit: int = 3) -> list[dict]:
+    return [{"title": r.get("title", ""), "snippet": _plain(r.get("snippet", ""))[:300],
+             "url": "https://en.wikipedia.org/wiki/" + urllib.parse.quote(r.get("title", "").replace(" ", "_"))}
+            for r in (data.get("query", {}).get("search") or [])[:limit]]
+
+
+def _web_search(args, ctx):
+    query = str(args.get("query") or "").strip()[:300]
+    if not query:
+        raise ToolError("Say what to search for.")
+    out, failed = {"query": query}, []
+
+    def source(name, fetch):
+        try:
+            return fetch()
+        except Exception:
+            failed.append(name)
+            return []
+
+    bing = source("Bing", lambda: _rss_items(_fetch_text("https://www.bing.com/search?" + urllib.parse.urlencode(
+        {"q": query, "format": "rss", "setlang": "en-US"}))[0]))
+    ddg = source("DuckDuckGo", lambda: _ddg_results(_fetch_text(
+        "https://html.duckduckgo.com/html/", data=urllib.parse.urlencode({"q": query}).encode())[0]))
+    out["web"] = _merge(bing, ddg, limit=8)
+    if args.get("news") or not out["web"]:
+        bing_news = source("Bing News", lambda: _rss_items(_fetch_text("https://www.bing.com/news/search?" + urllib.parse.urlencode(
+            {"q": query, "format": "rss", "setlang": "en-US"}))[0]))
+        google_news = source("Google News", lambda: _rss_items(_fetch_text("https://news.google.com/rss/search?" + urllib.parse.urlencode(
+            {"q": query, "hl": "en-US", "gl": "US", "ceid": "US:en"}))[0]))
+        out["news"] = _merge(bing_news, google_news, limit=8)
+    out["encyclopedia"] = source("Wikipedia", lambda: _wiki_results(json.loads(_fetch_text(
+        "https://en.wikipedia.org/w/api.php?" + urllib.parse.urlencode(
+            {"action": "query", "list": "search", "srsearch": query, "format": "json", "srlimit": 3}))[0])))
+    out = {k: v for k, v in out.items() if v}
+    if not any(out.get(k) for k in ("web", "news", "encyclopedia")):
+        raise ToolError("The search didn't return anything" + (" (couldn't reach the search sites)." if failed else ".")
+                        + " Say so, and answer from what you know if you can, flagging that it may be out of date.")
+    return out
+
+
+def _read_webpage(args, ctx):
+    url = _check_public_url(str(args.get("url") or "").strip())
+    try:
+        page, ctype = _fetch_text(url, opener=_page_opener)
+    except ToolError:
+        raise
+    except Exception as e:
+        raise ToolError(f"Couldn't open that page ({e.__class__.__name__}).") from None
+    if ctype not in ("text/html", "text/plain", "application/xhtml+xml"):
+        raise ToolError("That isn't a readable web page.")
+    title = _plain(m.group(1)) if (m := re.search(r"<title[^>]*>(.*?)</title>", page, re.S | re.I)) else ""
+    page = re.sub(r"<(head|script|style|noscript|svg|nav|footer|header|form|aside)\b.*?</\1>", " ", page, flags=re.S | re.I)
+    text = _plain(re.sub(r"</(p|div|li|h[1-6]|br|tr)>", "\n", page, flags=re.I))
+    return {"url": url, "title": title, "text": text[:7000], "truncated": len(text) > 7000}
+
+
 HANDLERS = {
+    "web_search": _web_search,
+    "read_webpage": _read_webpage,
     "control_app": _control_app,
     "get_market_trends": _get_market_trends,
     "set_timer": _set_timer,

@@ -200,6 +200,7 @@ const HUD = {
       ["Speech Synthesis", m === "speaking"],
       ["Visual Analysis", typeof Gesture !== "undefined" && Gesture.running],
       ["Media Playback", !!playing],
+      ["Tutor Mode", typeof Voice !== "undefined" && Voice.tutor],
     ];
     const prevKey = this._procKey; const key = rows.map(r => r[1] ? 1 : 0).join("");
     ul.innerHTML = "";

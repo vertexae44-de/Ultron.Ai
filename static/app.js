@@ -516,6 +516,7 @@ const TOOL_LABELS = {
   get_weather: "Checking weather…", get_current_time: "Checking the time…",
   write_code: "Writing code…", read_code_editor: "Reading your code…",
   create_animation: "Animating…", generate_image: "Generating image…",
+  web_search: "Searching the web…", read_webpage: "Reading a page…",
 };
 
 function requestContext() {

@@ -123,6 +123,7 @@ const Chat = {
   reset() {
     interrupt();
     Object.assign(this, { id: null, title: "", starred: false, history: [], log: [], liveEl: null, sealed: 0 });
+    if (typeof Voice !== "undefined") Voice.tutor = false;
     $("transcript").replaceChildren();
     $("chatTitle").textContent = "New chat";
     Chats.render();
