@@ -196,6 +196,13 @@ function frame() {
   g.addColorStop(1, `rgba(${rgb(look.shell, -70)},0)`);
   ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, coreR, 0, 6.283); ctx.fill();
 
+  // a tight, near-white hotspot pinpoint at the very centre, like a star behind glass
+  const hot = ctx.createRadialGradient(cx, cy, 0, cx, cy, coreR * .22);
+  hot.addColorStop(0, "rgba(255,255,255,1)");
+  hot.addColorStop(.5, `rgba(${rgb(look.core.map(c => c + (255 - c) * .8))},.9)`);
+  hot.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = hot; ctx.beginPath(); ctx.arc(cx, cy, coreR * .22, 0, 6.283); ctx.fill();
+
   // a thin cross-shaped lens flare through the core, like light through glass
   ctx.save();
   ctx.translate(cx, cy);
@@ -210,12 +217,12 @@ function frame() {
   ctx.restore();
 
   // a glassy sphere rim with a specular highlight, top-left, like light on glass
-  const rim = ctx.createRadialGradient(cx - R * .35, cy - R * .35, R * .05, cx, cy, R * 1.05);
-  rim.addColorStop(0, "rgba(255,255,255,.3)"); rim.addColorStop(.18, "rgba(255,255,255,.05)"); rim.addColorStop(1, "rgba(255,255,255,0)");
+  const rim = ctx.createRadialGradient(cx - R * .4, cy - R * .4, 0, cx - R * .4, cy - R * .4, R * .45);
+  rim.addColorStop(0, "rgba(255,255,255,.16)"); rim.addColorStop(.5, "rgba(255,255,255,.04)"); rim.addColorStop(1, "rgba(255,255,255,0)");
   ctx.fillStyle = rim; ctx.beginPath(); ctx.arc(cx, cy, R * 1.05, 0, 6.283); ctx.fill();
-  ctx.strokeStyle = `rgba(${rgb(look.core.map(c => c + (255 - c) * .5))},${.3 + energy * .2})`;
-  ctx.lineWidth = 1.4 * DPR;
-  ctx.beginPath(); ctx.arc(cx, cy, R * 1.02, 0, 6.283); ctx.stroke();
+  ctx.strokeStyle = `rgba(${rgb(look.core.map(c => c + (255 - c) * .5))},${.4 + energy * .2})`;
+  ctx.lineWidth = 1.6 * DPR;
+  ctx.beginPath(); ctx.arc(cx, cy, R * 1.01, 0, 6.283); ctx.stroke();
 
   const cs = Math.cos(spin), sn = Math.sin(spin), ct = Math.cos(.35), st = Math.sin(.35);
   for (const p of pts) {
@@ -225,7 +232,7 @@ function frame() {
     const y2 = y * ct - z * st; z = y * st + z * ct; y = y2;
     const persp = 1.8 / (2.6 - z);
     const sx = cx + x * R * wob * persp, sy = cy + y * R * wob * persp;
-    const a = (.15 + .55 * (z + 1) / 2) * (.6 + energy * .6);
+    const a = (.22 + .58 * (z + 1) / 2) * (.65 + energy * .6);
     const size = (1 + (z + 1)) * DPR * .8;
     ctx.fillStyle = `rgba(${rgb(look.shell, z * 60)},${a})`;
     ctx.fillRect(sx, sy, size, size);
@@ -236,21 +243,23 @@ function frame() {
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(spin * (k % 2 ? -1.4 : 1) + k * 1.05);
-    ctx.strokeStyle = `rgba(${rgb(look.shell, -5)},${.18 + energy * .3})`;
+    ctx.strokeStyle = `rgba(${rgb(look.core, 20)},${.32 + energy * .35})`;
     const rx = R * (1.25 + k * .12 + energy * .2), ry = R * (.35 + k * .1);
     ctx.beginPath();
     ctx.ellipse(0, 0, rx, ry, 0, 0, 6.283);
     ctx.stroke();
-    // a bright node travelling along the ring, like a small orbiting body
+    // two bright nodes travelling along the ring, like small orbiting bodies
     const phase = t * (.5 + k * .15) + k * 2.1;
-    const nx = Math.cos(phase) * rx, ny = Math.sin(phase) * ry;
-    const nr = 5 * DPR;
-    const ng = ctx.createRadialGradient(nx, ny, 0, nx, ny, nr);
-    ng.addColorStop(0, "rgba(255,255,255,.95)");
-    ng.addColorStop(.4, `rgba(${rgb(look.core)},.9)`);
-    ng.addColorStop(1, "rgba(255,40,50,0)");
-    ctx.fillStyle = ng;
-    ctx.beginPath(); ctx.arc(nx, ny, nr, 0, 6.283); ctx.fill();
+    for (const ph of [phase, phase + 3.14159]) {
+      const nx = Math.cos(ph) * rx, ny = Math.sin(ph) * ry;
+      const nr = 4.5 * DPR;
+      const ng = ctx.createRadialGradient(nx, ny, 0, nx, ny, nr);
+      ng.addColorStop(0, "rgba(255,255,255,.95)");
+      ng.addColorStop(.4, `rgba(${rgb(look.core)},.9)`);
+      ng.addColorStop(1, "rgba(255,40,50,0)");
+      ctx.fillStyle = ng;
+      ctx.beginPath(); ctx.arc(nx, ny, nr, 0, 6.283); ctx.fill();
+    }
     ctx.restore();
   }
 
