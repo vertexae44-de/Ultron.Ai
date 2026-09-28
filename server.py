@@ -606,8 +606,11 @@ class Handler(SimpleHTTPRequestHandler):
         extra = {"betas": ["server-side-fallback-2026-07-01"], "fallbacks": "default"} if model in FALLBACK_MODELS else {}
         spoke = False  # add a space between text from separate model calls
         json_retries = 0
+        # Tools, system prompt and history repeat every turn: cache them so each reply starts
+        # sooner (and costs less). Dropped for the rest of the run if the API or SDK rejects it.
+        cache = {"cache_control": {"type": "ephemeral"}}
         try:
-            for _ in range(MAX_TOOL_ROUNDS):
+            for _ in range(MAX_TOOL_ROUNDS + 1):
                 first_text = True
                 try:
                     with self.client.beta.messages.stream(
@@ -617,9 +620,7 @@ class Handler(SimpleHTTPRequestHandler):
                         messages=messages,
                         tools=tools.TOOLS,
                         output_config={"effort": effort},
-                        # Tools, system prompt and history repeat every turn: cache them so each
-                        # reply starts sooner (and costs less) instead of re-reading all of it.
-                        cache_control={"type": "ephemeral"},
+                        **cache,
                         **extra,
                     ) as stream:
                         for event in stream:
@@ -633,6 +634,12 @@ class Handler(SimpleHTTPRequestHandler):
                                 self._event({"type": "tool", "name": event.content_block.name})
                         response = stream.get_final_message()
                     json_retries = 0
+                except (anthropic.BadRequestError, TypeError) as e:
+                    if not cache or "credit" in str(e).lower():
+                        raise
+                    self.log_error("retrying without cache_control: %s", e)
+                    cache = {}
+                    continue
                 except ValueError:
                     # Tool input JSON the SDK couldn't parse; the block never completed,
                     # so there is nothing to answer. Re-issue the turn, bounded.
@@ -658,7 +665,14 @@ class Handler(SimpleHTTPRequestHandler):
         except anthropic.RateLimitError:
             self._event({"type": "error", "message": "Rate limited. Try again shortly."})
         except anthropic.APIStatusError as e:
-            self._event({"type": "error", "message": f"API error {e.status_code}: {e.message}"})
+            detail = str(e.message)
+            self.log_error("Claude API error %s: %s", e.status_code, detail)
+            if "credit balance" in detail.lower():
+                msg = ("Your Anthropic credit has run out. Top it up at console.anthropic.com under Billing"
+                       + (", or say go free to use the free brain on this PC." if local_brain.installed_models() else "."))
+            else:
+                msg = f"Claude refused the request ({e.status_code}): {detail[:160]}"
+            self._event({"type": "error", "message": msg})
         except anthropic.APIConnectionError:
             self._event({"type": "error", "message": "Could not reach the Claude API."})
         except ValueError:
