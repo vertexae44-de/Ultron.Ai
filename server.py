@@ -178,6 +178,13 @@ class Handler(SimpleHTTPRequestHandler):
             self._send_json({"error": "Log in to use this."}, HTTPStatus.UNAUTHORIZED)
         return user
 
+    def end_headers(self):
+        # Make the browser check for a newer copy every time, so an update shows up on the next
+        # open instead of a cached old page (the app window has no refresh button).
+        if not any(h.lower().startswith(b"cache-control:") for h in getattr(self, "_headers_buffer", [])):
+            self.send_header("Cache-Control", "no-cache")
+        super().end_headers()
+
     def log_message(self, fmt, *args):
         # Skip per-file static noise; keep API calls and errors.
         if not args or "/api/" in str(args[0]) or not fmt.startswith('"%s"'):
