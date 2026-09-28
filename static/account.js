@@ -283,20 +283,15 @@ onConfig(() => {
 // Ultron's startup announcement, spoken once when the START screen is dismissed. Other things
 // that want to speak on load (the market briefing) await `bootReady` first, so they always come
 // in after it rather than racing it.
-const BOOT_LINES = [
-  ["calm", "System online."],
-  ["calm", "Neural core initialized."],
-  ["calm", "All systems are operational."],
-  ["warm", "Welcome back."],
-  ["stern", "I am Ultron."],
-  ["sinister", "Your systems are now under my control."],
-  ["excited", "Let's begin."],
-];
+// Spoken as one utterance in one even, natural voice: separate lines left long gaps between
+// them and jumped between moods (the last one sounded suddenly excited).
+const BOOT_LINE = "System online. Neural core initialized, and all systems are operational. " +
+  "Welcome back. I am Ultron. Your systems are now under my control. Let's begin.";
 let resolveBootReady;
 let bootReady = new Promise((r) => { resolveBootReady = r; });
 
 function runBootSequence() {
-  for (const [mood, line] of BOOT_LINES) speak(line, mood);
+  speak(BOOT_LINE, "calm");
   // Resolve once the last line has actually finished, not just been queued.
   const check = () => { if (!playing && !speechQueue.length) resolveBootReady(); else setTimeout(check, 200); };
   setTimeout(check, 200);

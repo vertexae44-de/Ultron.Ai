@@ -113,7 +113,8 @@ const COMMANDS = [
   [/^(?:close|dismiss|exit|stop)(?: the)? hologram$/, () => Voice.run("close_hologram")],
   // "project a cube" / "project a red ferrari" / "show me a hologram of the eiffel tower" -- anything
   // after "project"/"hologram of" is either a known primitive shape or a free description to generate.
-  [/^(?:play|watch)(?: a| an| the)? (.+?) (?:video )?on youtube$/, (m) => Voice.run("play_youtube", m[1])],
+  [/^(?:open|show|go to|play|watch)(?: me)?(?: the)? (.+?)(?:'s)? (?:youtube )?channel(?: on youtube)?$/, (m) => Voice.run("play_youtube", m[1] + " channel")],
+  [/^(?:play|watch|open|show)(?: me)?(?: a| an| the)? (.+?) (?:video )?on youtube$/, (m) => Voice.run("play_youtube", m[1])],
   [/^youtube (.+)$/, (m) => Voice.run("play_youtube", m[1])],
   [/^(?:pause|stop) the video$/, () => Voice.run("pause_video")],
   [/^(?:resume|play|unpause) the video$/, () => Voice.run("resume_video")],

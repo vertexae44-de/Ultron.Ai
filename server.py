@@ -217,6 +217,12 @@ class Handler(SimpleHTTPRequestHandler):
                 self._send_json(tools.list_images(user["id"]))
         elif path == "/api/markets":
             self._send_json(tools.market_trends())
+        elif path == "/api/youtube":
+            q = dict(urllib.parse.parse_qsl(self.path.partition("?")[2])).get("q", "")
+            try:
+                self._send_json(tools.youtube_search(q))
+            except tools.ToolError as e:
+                self._send_json({"error": str(e)}, HTTPStatus.NOT_FOUND)
         elif path.startswith("/api/weather/home"):
             q = dict(urllib.parse.parse_qsl(self.path.partition("?")[2]))
             try:

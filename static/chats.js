@@ -364,14 +364,20 @@ const Markets = {
   },
 
   // The dashboard's Markets panel: compact rows; click one for the live fullscreen chart.
+  // Shown straight away, and whenever the trending feeds can't be reached, so there's always
+  // something to click; the chart itself comes live from TradingView either way.
+  POPULAR: [["BTC", "Bitcoin", "Crypto"], ["ETH", "Ethereum", "Crypto"], ["SOL", "Solana", "Crypto"],
+            ["TSLA", "Tesla", "Stock"], ["AAPL", "Apple", "Stock"], ["NVDA", "Nvidia", "Stock"]]
+            .map(([symbol, name, kind]) => ({ symbol, name, kind, change_pct: null, spark: [] })),
+
   renderDash(rows) {
     const box = $("jMarkets");
     if (!box) return;
-    if (!rows.length) { box.replaceChildren(el("li", { class: "empty" }, "Market feeds unreachable.")); return; }
+    if (!rows.length) rows = this.POPULAR;
     box.replaceChildren(...rows.map(c => {
       const up = c.change_pct == null ? null : c.change_pct >= 0;
       return el("li", {},
-        el("button", { type: "button", title: `Open the ${c.name} chart`, onclick: () => this.openChart(c.symbol) },
+        el("button", { type: "button", title: `Open the ${c.name} chart`, onclick: () => { if (this.openChart(c.name)) this.openChart(c.symbol); } },
           el("b", {}, (c.symbol || "?").slice(0, 5)),
           sparkSVG(c.spark, up),
           el("span", { class: "chg " + (up ? "up" : "down") }, up === null ? "—" : (up ? "▲" : "▼") + Math.abs(c.change_pct) + "%")));
@@ -390,6 +396,7 @@ const Markets = {
 };
 
 (async () => {
+  Markets.renderDash([]);
   const data = await Markets.load();
   Markets.interval = setInterval(() => Markets.load(), 90000);
   let brand = false;

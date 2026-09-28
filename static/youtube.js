@@ -19,32 +19,49 @@ function loadYouTubeApi() {
 }
 
 const YouTube = {
-  player: null, query: "",
+  player: null, ready: null, query: "",
 
+  // The player itself, created once and reused.
+  ensurePlayer() {
+    if (this.ready) return this.ready;
+    this.ready = loadYouTubeApi().then(() => new Promise((resolve) => {
+      this.player = new YT.Player("ytFrame", {
+        host: "https://www.youtube-nocookie.com",
+        playerVars: { autoplay: 1, playsinline: 1, rel: 0 },
+        events: {
+          onReady: () => resolve(this.player),
+          onStateChange: () => {
+            const data = this.player.getVideoData?.();
+            if (data?.title) $("ytTitle").textContent = data.title;
+          },
+          // 101/150: the uploader doesn't allow embedding -- move on to the next result.
+          onError: (e) => {
+            if ([101, 150, 100].includes(e.data) && this.player.getPlaylistIndex?.() < (this.player.getPlaylist?.()?.length || 0) - 1) this.player.nextVideo();
+            else $("ytTitle").textContent = `Couldn't play "${this.query}" here.`;
+          },
+        },
+      });
+    }));
+    return this.ready;
+  },
+
+  // "Play <song/video>" or "open <name> channel": look it up on YouTube (via the server), then play.
   async play(query) {
     query = (query || "").trim();
     if (!query) return "Watch what?";
     this.query = query;
     $("ytView").hidden = false;
-    $("ytTitle").textContent = `Searching YouTube for "${query}"…`;
+    $("ytTitle").textContent = `Finding "${query}" on YouTube…`;
     document.body.classList.add("yt-open");
     try {
-      await loadYouTubeApi();
-      if (this.player) { this.player.loadPlaylist({ listType: "search", list: query }); }
-      else {
-        this.player = new YT.Player("ytFrame", {
-          host: "https://www.youtube-nocookie.com",
-          playerVars: { listType: "search", list: query, autoplay: 1, playsinline: 1 },
-          events: {
-            onReady: () => this.player.playVideo(),
-            onStateChange: (e) => {
-              const data = this.player.getVideoData?.();
-              if (data?.title) $("ytTitle").textContent = data.title;
-            },
-            onError: () => { $("ytTitle").textContent = `Couldn't play "${query}" on YouTube.`; },
-          },
-        });
-      }
+      const [found, player] = await Promise.all([
+        fetch("/api/youtube?q=" + encodeURIComponent(query)).then(r => r.json()),
+        this.ensurePlayer(),
+      ]);
+      if (found.error) { $("ytTitle").textContent = found.error; return found.error; }
+      $("ytTitle").textContent = found.title;
+      if (found.kind === "channel") player.loadPlaylist({ listType: "playlist", list: found.playlist });
+      else player.loadPlaylist(found.ids);
     } catch (err) {
       this.close();
       return "YouTube didn't load -- check your connection.";

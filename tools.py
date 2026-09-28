@@ -19,6 +19,7 @@ import urllib.parse
 import urllib.request
 import uuid
 import xml.etree.ElementTree as ET
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -201,8 +202,9 @@ APP_ACTIONS = {
     "close_hologram": "close the hologram viewer",
     "open_chart": "open a live fullscreen TradingView chart; value = a coin or company name or a ticker, "
                   "e.g. 'bitcoin', 'tesla' or 'TSLA'. Prefer the ticker for anything not well known.",
-    "play_youtube": "open an embedded YouTube player inside the app and play a search for value. "
-                     "This plays on this device only, in the app itself -- there is no way to "
+    "play_youtube": "play a YouTube video inside the app: value = what to search for (a song, video title, "
+                     "topic). To play a channel's latest uploads, put the word 'channel' in value, e.g. "
+                     "'MrBeast channel'. This plays on this device only, in the app itself -- there is no way to "
                      "control a separate phone or TV from here; say so plainly if asked.",
     "pause_video": "pause the YouTube video", "resume_video": "resume the YouTube video",
     "next_video": "skip to the next YouTube search result", "close_video": "close the YouTube player",
@@ -369,7 +371,7 @@ def _market_json(url: str, params: dict | None = None) -> dict:
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
         "Accept": "application/json",
     })
-    with urllib.request.urlopen(req, timeout=8) as resp:
+    with urllib.request.urlopen(req, timeout=6) as resp:
         return json.load(resp)
 
 
@@ -403,12 +405,13 @@ def _candles_crypto(coin_id: str) -> list[dict]:
 
 def _fetch_trending_crypto() -> list[dict]:
     data = _market_json("https://api.coingecko.com/api/v3/search/trending")
+    coins = [item.get("item") or {} for item in (data.get("coins") or [])[:3]]
+    with ThreadPoolExecutor(max_workers=3) as pool:   # the candle lookups run side by side
+        all_candles = list(pool.map(lambda c: _candles_crypto(c["id"]) if c.get("id") else [], coins))
     out = []
-    for item in (data.get("coins") or [])[:3]:
-        c = item.get("item") or {}
+    for c, candles in zip(coins, all_candles):
         price = ((c.get("data") or {}).get("price") or 0)
         change = ((c.get("data") or {}).get("price_change_percentage_24h") or {}).get("usd")
-        candles = _candles_crypto(c.get("id", "")) if c.get("id") else []
         out.append({
             "symbol": str(c.get("symbol") or "").upper(), "name": str(c.get("name") or ""),
             "price": round(float(price), 6) if price else None,
@@ -418,35 +421,35 @@ def _fetch_trending_crypto() -> list[dict]:
     return out
 
 
-def _candles_stock(symbol: str) -> list[dict]:
-    """Real OHLC candles for today's session (15-minute bars), downsampled to about 16."""
+def _stock_row(symbol: str) -> dict | None:
+    """Price, day change and today's candles from Yahoo's chart endpoint -- the only one of theirs
+    that still answers without a signed-in session (the old /v7/quote now returns 401)."""
     try:
         data = _market_json(f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}",
                              {"range": "1d", "interval": "15m"})
-        quote = (((data.get("chart") or {}).get("result") or [{}])[0].get("indicators", {}).get("quote") or [{}])[0]
+        res = ((data.get("chart") or {}).get("result") or [{}])[0]
+        meta = res.get("meta") or {}
+        quote = ((res.get("indicators") or {}).get("quote") or [{}])[0]
         o, h, l, c = quote.get("open") or [], quote.get("high") or [], quote.get("low") or [], quote.get("close") or []
-        candles = [{"o": oo, "h": hh, "l": ll, "c": cc} for oo, hh, ll, cc in zip(o, h, l, c) if None not in (oo, hh, ll, cc)]
-        return _downsample_candles(candles)
+        candles = _downsample_candles([{"o": oo, "h": hh, "l": ll, "c": cc}
+                                       for oo, hh, ll, cc in zip(o, h, l, c) if None not in (oo, hh, ll, cc)])
+        price, prev = meta.get("regularMarketPrice"), meta.get("chartPreviousClose") or meta.get("previousClose")
+        return {
+            "symbol": symbol, "name": str(meta.get("shortName") or meta.get("longName") or symbol),
+            "price": round(float(price), 2) if price is not None else None,
+            "change_pct": round((price - prev) / prev * 100, 2) if price is not None and prev else None,
+            "candles": candles, "spark": [x["c"] for x in candles],
+        }
     except Exception:
-        return []
+        return None
 
 
 def _fetch_trending_stocks() -> list[dict]:
     trending = _market_json("https://query1.finance.yahoo.com/v1/finance/trending/US")
-    symbols = [q["symbol"] for q in ((trending.get("finance") or {}).get("result") or [{}])[0].get("quotes", [])[:3]]
-    if not symbols:
-        return []
-    quotes = _market_json("https://query1.finance.yahoo.com/v7/finance/quote", {"symbols": ",".join(symbols)})
-    out = []
-    for q in (quotes.get("quoteResponse") or {}).get("result", [])[:3]:
-        candles = _candles_stock(q.get("symbol", ""))
-        out.append({
-            "symbol": q.get("symbol", ""), "name": str(q.get("shortName") or q.get("symbol") or ""),
-            "price": round(float(q["regularMarketPrice"]), 2) if q.get("regularMarketPrice") is not None else None,
-            "change_pct": round(float(q["regularMarketChangePercent"]), 2) if q.get("regularMarketChangePercent") is not None else None,
-            "candles": candles, "spark": [c["c"] for c in candles],
-        })
-    return out
+    symbols = [q["symbol"] for q in ((trending.get("finance") or {}).get("result") or [{}])[0].get("quotes", [])[:5]
+               if re.fullmatch(r"[A-Z]{1,5}", q.get("symbol", ""))][:3]   # plain US tickers, not futures/indices
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        return [row for row in pool.map(_stock_row, symbols) if row]
 
 
 def market_trends() -> dict:
@@ -456,9 +459,11 @@ def market_trends() -> dict:
         if _markets_cache["data"] is not None and time.time() - _markets_cache["at"] < MARKETS_CACHE_SECONDS:
             return _markets_cache["data"]
     out = {"crypto": [], "stocks": [], "errors": []}
-    for key, fetch in (("crypto", _fetch_trending_crypto), ("stocks", _fetch_trending_stocks)):
+    with ThreadPoolExecutor(max_workers=2) as pool:   # crypto and stocks side by side
+        futures = {key: pool.submit(fetch) for key, fetch in (("crypto", _fetch_trending_crypto), ("stocks", _fetch_trending_stocks))}
+    for key, fut in futures.items():
         try:
-            out[key] = fetch()
+            out[key] = fut.result()
         except Exception as e:
             out["errors"].append(f"{key}: {e}")
     with _markets_lock:
@@ -959,6 +964,49 @@ def _web_search(args, ctx):
         raise ToolError("The search didn't return anything" + (" (couldn't reach the search sites)." if failed else ".")
                         + " Say so, and answer from what you know if you can, flagging that it may be out of date.")
     return out
+
+
+def _yt_text(raw: str) -> str:
+    try:
+        return json.loads('"' + raw + '"')   # the page embeds JSON strings, escapes and all
+    except ValueError:
+        return raw
+
+
+def youtube_search(query: str) -> dict:
+    """A video (plus a few runners-up, so "next" works) or a channel's uploads, found from YouTube's
+    own results page -- no API key. The player's built-in "play this search" was retired by YouTube."""
+    query = str(query or "").strip()[:200]
+    channel = bool(re.search(r"\bchannel\b", query, re.I))
+    terms = re.sub(r"\b(?:on youtube|youtube|channel|the)\b", " ", query, flags=re.I)
+    terms = _WS.sub(" ", terms).strip() or query
+    if not terms:
+        raise ToolError("Say what to play.")
+    params = {"search_query": terms, "hl": "en"}
+    if channel:
+        params["sp"] = "EgIQAg=="   # YouTube's "channels only" filter
+    req = urllib.request.Request("https://www.youtube.com/results?" + urllib.parse.urlencode(params),
+                                 headers={"User-Agent": BROWSER_UA, "Accept-Language": "en-US,en;q=0.8",
+                                          "Cookie": "CONSENT=YES+1"})
+    try:
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            page = resp.read(3_000_000).decode("utf-8", "replace")
+    except Exception:
+        raise ToolError("Couldn't reach YouTube.") from None
+    if channel:
+        m = re.search(r'"channelRenderer":\{"channelId":"(UC[\w-]{22})","title":\{"simpleText":"((?:[^"\\]|\\.)*)"', page)
+        if m:
+            return {"kind": "channel", "channel_id": m.group(1), "playlist": "UU" + m.group(1)[2:],
+                    "title": _yt_text(m.group(2))}
+    found = re.findall(r'"videoRenderer":\{"videoId":"([\w-]{11})".*?"title":\{"runs":\[\{"text":"((?:[^"\\]|\\.)*)"', page)
+    ids, titles = [], {}
+    for vid, title in found:
+        if vid not in titles:
+            ids.append(vid)
+            titles[vid] = _yt_text(title)
+    if not ids:
+        raise ToolError(f"Nothing came up on YouTube for {terms}.")
+    return {"kind": "video", "ids": ids[:15], "title": titles[ids[0]]}
 
 
 def _read_webpage(args, ctx):

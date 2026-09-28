@@ -482,7 +482,9 @@
     line-height: 1.5; letter-spacing: .03em; text-align: right; }
   .j-quote i { display: block; font-style: normal; color: var(--red); font-size: 9px; letter-spacing: .1em; margin-top: 4px; }
 
-  .j-col { display: flex; flex-direction: column; gap: 10px; overflow-y: auto; scrollbar-width: thin; min-height: 0; min-width: 0; }
+  .j-col { display: flex; flex-direction: column; gap: 10px; overflow-y: auto; scrollbar-width: none; min-height: 0; min-width: 0; }
+  .j-col::-webkit-scrollbar, body.voice-only #homeView::-webkit-scrollbar { display: none; }
+  body.voice-only #homeView { scrollbar-width: none; }
   .j-col.j-left { grid-area: left; } .j-col.j-right { grid-area: right; }
   .j-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
   .j-panel h4 { display: flex; align-items: center; gap: 7px; font-size: 9.5px; letter-spacing: .1em; color: var(--dim); margin: 0 0 8px; text-transform: uppercase; }
