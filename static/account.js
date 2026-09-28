@@ -157,6 +157,7 @@ const Account = {
       el("header", {}, el("h2", {}, "Settings"), el("button", { class: "icon-btn", "aria-label": "Close", onclick: () => Modal.close() }, "×")),
       el("div", { class: "body" },
         check("Wake word", "Say “Ultron …” to talk hands-free. In Chrome and Edge, the microphone streams to the browser's speech service while this is on.", wakeEnabled, (v) => setWake(v)),
+        check("Always listening", "Just talk: Ultron answers anything you say, no “Ultron” or clap needed. Turn it off if it reacts to the TV or other people.", Voice.alwaysOn, (v) => Voice.run("always_listen", v ? "on" : "off")),
         check("Keep listening after replies", "After Ultron answers something you said, it listens for your reply without the wake word.", Voice.followUp, (v) => Voice.run("follow_up", v ? "on" : "off")),
         el("label", { class: "opt" }, el("span", {}, "Hand-gesture control", el("small", {}, "Open palm to wake, a fist to stop, thumbs up/down to confirm, peace sign for a new chat. Uses the camera, on-device only.")),
           el("input", { type: "checkbox", checked: Gesture.enabled, onchange: (e) => Gesture.toggle(e.target.checked) })),

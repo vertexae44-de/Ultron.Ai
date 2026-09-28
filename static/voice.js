@@ -82,6 +82,8 @@ const COMMANDS = [
   [/^(?:turn on (?:the )?wake word|wake word on|enable (?:the )?wake word)$/, () => Voice.run("wake_word", "on")],
   [/^(?:turn |switch )?(on|off) (?:the )?clap(?:ping)?(?: detection| to wake)?$/, (m) => Voice.run("clap", m[1] === "on" ? "double" : "off")],
   [/^(?:turn |switch )?clap(?:ping)?(?: detection| to wake)? (on|off)$/, (m) => Voice.run("clap", m[1] === "on" ? "double" : "off")],
+  [/^(?:only (?:listen )?when i say your name|(?:use|back to) (?:the )?wake word|stop listening to everything|always listen(?:ing)? off)$/, () => Voice.run("always_listen", "off")],
+  [/^(?:always listen(?:ing)?(?: on)?|listen to everything|you don't need your name)$/, () => Voice.run("always_listen", "on")],
   [/^(?:one|single|1) clap(?: mode)?$/, () => Voice.run("clap", "single")],
   [/^(?:two|double|2) claps?(?: mode)?$/, () => Voice.run("clap", "double")],
   [/^(?:mute|mute (?:your )?voice|go silent|text only|stop speaking out loud)$/, () => Voice.run("voice_output", "off")],
@@ -148,6 +150,7 @@ const VOICE_HELP = [
 
 const Voice = {
   followUp: store.get("followUp", true),
+  alwaysOn: store.get("alwaysOn", true),          // answer anything said, no "Ultron" or clap needed
   tutor: false,   // set by Claude via control_app tutor_mode; cleared with a new chat
   clapMode: store.get("clapMode", "off"),         // off | single | double; off by default: noise woke it
   clapSense: store.get("clapSense", "normal"),    // low | normal | high
@@ -261,6 +264,11 @@ const Voice = {
         this.setClap(m);
         return m === "off" ? "Clap detection off." : m === "single" ? "Clap once to wake me." : "Clap twice to wake me.";
       }
+      case "always_listen":
+        this.alwaysOn = value !== "off"; store.set("alwaysOn", this.alwaysOn);
+        if (this.alwaysOn && !wakeEnabled) setWake(true);
+        renderLive();
+        return this.alwaysOn ? "I'm listening to everything now. Just talk." : "Only when you say my name, then.";
       case "follow_up": this.followUp = value !== "off"; store.set("followUp", this.followUp);
         return this.followUp ? "I'll keep listening after I answer." : "I'll wait for the wake word each time.";
       case "voice_output":
@@ -318,6 +326,7 @@ const Voice = {
 
   idleHint() {
     const clap = this.clapMode === "double" ? "clap twice" : this.clapMode === "single" ? "clap" : "";
+    if (wakeEnabled && this.alwaysOn) return "Listening · just talk";
     if (wakeEnabled) return `Standing by · say “Ultron”${clap ? " or " + clap : ""}`;
     if (clap && Clap.running) return `Standing by · ${clap} to talk`;
     return "Online · click the core to talk";
