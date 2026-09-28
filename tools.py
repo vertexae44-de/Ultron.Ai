@@ -7,17 +7,21 @@ under data/images and served by the server.
 """
 
 import base64
+import difflib
 import html
 import ipaddress
 import json
 import os
 import re
 import socket
+import subprocess
+import sys
 import threading
 import time
 import urllib.parse
 import urllib.request
 import uuid
+import webbrowser
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -229,6 +233,36 @@ TOOLS.append({
     },
 })
 TOOLS.extend([
+    {
+        "name": "open_app",
+        "description": (
+            "Open any app installed on the user's Windows PC by name (Spotify, Word, Chrome, Discord, "
+            "Minecraft, Settings, Calculator...), found in their Start menu, or a website by its address "
+            "(e.g. 'instagram.com'). Use it whenever the user says open, launch or start an app that isn't "
+            "part of Ultron itself. For Ultron's own screens use control_app instead."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {"name": {"type": "string", "description": "The app's name as the user said it, or a web address."}},
+            "required": ["name"],
+        },
+    },
+    {
+        "name": "play_music",
+        "description": (
+            "Play a song or artist. source 'any' (default): the user's own music files on this PC if there's a "
+            "match, otherwise it plays from YouTube. 'local': only their files. 'spotify': opens Spotify with "
+            "the search (the user presses play there). Use whenever the user asks to play a song, music or artist."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Song and/or artist, e.g. 'Believer Imagine Dragons'."},
+                "source": {"type": "string", "enum": ["any", "local", "spotify"]},
+            },
+            "required": ["query"],
+        },
+    },
     {
         "name": "web_search",
         "description": (
@@ -1045,6 +1079,120 @@ def youtube_search(query: str) -> dict:
     return {"kind": "video", "ids": ids[:15], "title": titles[ids[0]]}
 
 
+# ---------- apps and music on this PC ----------
+# The server runs on the user's own machine, so it can launch their apps and play their music.
+# server.py switches this off whenever the server is reachable from other machines.
+LOCAL_CONTROL = True
+_NO_WINDOW = 0x08000000   # subprocess flag: don't flash a console window on Windows
+
+_apps_cache: dict = {"at": 0.0, "apps": []}
+
+
+def _start_apps() -> list[tuple[str, str]]:
+    """(name, AppID) for every app in the Windows Start menu -- desktop programs and Store apps
+    alike -- from PowerShell's Get-StartApps. Cached for ten minutes."""
+    if _apps_cache["apps"] and time.time() - _apps_cache["at"] < 600:
+        return _apps_cache["apps"]
+    out = subprocess.run(["powershell", "-NoProfile", "-Command", "Get-StartApps | ConvertTo-Json -Compress"],
+                         capture_output=True, text=True, timeout=25, creationflags=_NO_WINDOW)
+    data = json.loads(out.stdout or "[]")
+    data = [data] if isinstance(data, dict) else data
+    _apps_cache["apps"] = [(a["Name"], a["AppID"]) for a in data if a.get("Name") and a.get("AppID")]
+    _apps_cache["at"] = time.time()
+    return _apps_cache["apps"]
+
+
+def _best_match(query: str, names: list[str]) -> int | None:
+    """Index of the name that best matches what was said, or None."""
+    q = re.sub(r"[^a-z0-9 ]", " ", query.lower())
+    q = _WS.sub(" ", re.sub(r"\b(?:the|app|application|program|my|open|launch|start|play|song|please)\b", " ", q)).strip()
+    if not q:
+        return None
+    low = [_WS.sub(" ", re.sub(r"[^a-z0-9 ]", " ", n.lower())).strip() for n in names]
+    for test in (lambda n: n == q, lambda n: all(w in n.split() for w in q.split()), lambda n: n.startswith(q),
+                 lambda n: q in n):
+        hits = [i for i, n in enumerate(low) if test(n)]
+        if hits:
+            return min(hits, key=lambda i: len(low[i]))   # the shortest: "Word", not "Word Mobile Viewer"
+    close = difflib.get_close_matches(q, low, n=1, cutoff=0.6)
+    return low.index(close[0]) if close else None
+
+
+def open_app(name: str) -> str:
+    if not LOCAL_CONTROL:
+        raise ToolError("Opening apps is switched off because this server is reachable from other machines.")
+    if not sys.platform.startswith("win"):
+        raise ToolError("Opening apps only works when Ultron runs on Windows.")
+    name = str(name or "").strip()[:100]
+    apps = _start_apps()
+    i = _best_match(name, [n for n, _ in apps])
+    if i is not None:
+        app_name, app_id = apps[i]
+        subprocess.Popen(["explorer.exe", "shell:AppsFolder\\" + app_id], creationflags=_NO_WINDOW)
+        return app_name
+    site = name.lower().replace(" ", "")
+    if re.fullmatch(r"[a-z0-9-]+(\.[a-z0-9-]+)+(/\S*)?", site):
+        webbrowser.open("https://" + site)
+        return site
+    raise ToolError(f"I couldn't find an app called {name} in the Start menu.")
+
+
+AUDIO_EXT = {".mp3", ".m4a", ".wav", ".flac", ".ogg", ".aac", ".wma", ".opus"}
+AUDIO_TYPES = {".mp3": "audio/mpeg", ".m4a": "audio/mp4", ".wav": "audio/wav", ".flac": "audio/flac",
+               ".ogg": "audio/ogg", ".aac": "audio/aac", ".wma": "audio/x-ms-wma", ".opus": "audio/ogg"}
+_music_cache: dict = {"at": 0.0, "files": {}}   # id -> Path
+
+
+def music_index() -> dict:
+    """Audio files in the usual places (Music, OneDrive Music, Downloads, plus ULTRON_MUSIC_DIR)."""
+    if _music_cache["files"] and time.time() - _music_cache["at"] < 300:
+        return _music_cache["files"]
+    home = Path.home()
+    roots = [home / "Music", home / "OneDrive" / "Music", home / "Downloads"]
+    roots += [Path(p) for p in os.environ.get("ULTRON_MUSIC_DIR", "").split(os.pathsep) if p]
+    files = {}
+    for root in roots:
+        if not root.is_dir():
+            continue
+        for path in root.rglob("*"):
+            if path.suffix.lower() in AUDIO_EXT and path.is_file():
+                files[uuid.uuid5(uuid.NAMESPACE_URL, str(path)).hex[:16]] = path
+            if len(files) >= 20000:
+                break
+    _music_cache.update(at=time.time(), files=files)
+    return files
+
+
+def _play_music(args, ctx):
+    query = str(args.get("query") or "").strip()[:200]
+    source = str(args.get("source") or "any").lower()
+    if not query:
+        raise ToolError("Say which song.")
+    if source == "spotify":
+        if not LOCAL_CONTROL or not sys.platform.startswith("win"):
+            raise ToolError("Opening Spotify only works when Ultron runs on your Windows PC.")
+        os.startfile("spotify:search:" + urllib.parse.quote(query))
+        return {"opened": "Spotify", "note": "Spotify opened with the search; say so. Spotify only starts a "
+                "song itself with its paid developer API, so the user presses play there."}
+    if source in ("any", "local"):
+        files = music_index()
+        ids = list(files)
+        i = _best_match(query, [files[k].stem for k in ids])
+        if i is not None:
+            song = files[ids[i]]
+            ctx.events.append({"type": "music", "url": f"/api/music/file?id={ids[i]}", "title": song.stem})
+            return {"playing": song.stem, "from": "this PC"}
+        if source == "local":
+            raise ToolError(f"No song matching {query} in the Music folders ({len(files)} songs there).")
+    ctx.events.append({"type": "app", "action": "play_youtube", "value": query})
+    return {"playing": query, "from": "YouTube", "note": "Not in the local Music folders, so it's playing from YouTube."}
+
+
+def _open_app(args, ctx):
+    opened = open_app(args.get("name"))
+    return {"opened": opened}
+
+
 def _read_webpage(args, ctx):
     url = _check_public_url(str(args.get("url") or "").strip())
     try:
@@ -1062,6 +1210,8 @@ def _read_webpage(args, ctx):
 
 
 HANDLERS = {
+    "open_app": _open_app,
+    "play_music": _play_music,
     "web_search": _web_search,
     "read_webpage": _read_webpage,
     "control_app": _control_app,

@@ -46,11 +46,14 @@ const MPlayer = {
     this.play(0);
   },
 
+  // "Play <song>": a track from this PC's Music folders, found and served by the server.
+  playUrl(url, name) { this.load([{ url, name }]); },
+
   play(i) {
     if (i < 0 || i >= this.playlist.length) return;
     this.index = i;
     const f = this.playlist[i];
-    this.audio.src = URL.createObjectURL(f);
+    this.audio.src = f.url || URL.createObjectURL(f);   // a picked File, or a song served from this PC
     const title = f.name.replace(/\.[a-z0-9]+$/i, "");
     $("mpTitle").textContent = title;
     if ("mediaSession" in navigator) navigator.mediaSession.metadata = new MediaMetadata({ title, artist: "Ultron AI" });

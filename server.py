@@ -69,6 +69,9 @@ you to do something in the app, do it with control_app rather than telling them 
 You also have get_market_trends for today's top trending crypto and stocks, if asked. \
 Use them rather than guessing, and don't narrate them: at most a few words like "Checking." \
 before a slow lookup. When reporting weather, give the headline, not every number.
+You run on the user's own Windows PC: open_app opens any app they have (or a website), and \
+play_music plays a song from their own music files, Spotify, or YouTube. When they say open, launch \
+or play something, just do it -- don't ask which app or where unless it's genuinely unclear.
 You can search the internet with web_search and open a result with read_webpage. Search whenever \
 the answer depends on anything recent or that you aren't sure of (news, scores, who holds a role \
 now, releases, prices, schedules, facts after your training), and whenever the user says search, \
@@ -217,6 +220,18 @@ class Handler(SimpleHTTPRequestHandler):
                 self._send_json(tools.list_images(user["id"]))
         elif path == "/api/markets":
             self._send_json(tools.market_trends())
+        elif path == "/api/music/file":
+            # Only files from the Music index, by id -- never an arbitrary path.
+            song = tools.music_index().get(dict(urllib.parse.parse_qsl(self.path.partition("?")[2])).get("id", ""))
+            if not song or not tools.LOCAL_CONTROL:
+                self.send_error(HTTPStatus.NOT_FOUND)
+                return
+            data = song.read_bytes()
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", tools.AUDIO_TYPES.get(song.suffix.lower(), "application/octet-stream"))
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
         elif path == "/api/quotes":
             q = dict(urllib.parse.parse_qsl(self.path.partition("?")[2]))
             split = lambda k: [s.strip().upper() for s in q.get(k, "").split(",") if s.strip()]
@@ -595,6 +610,9 @@ class Handler(SimpleHTTPRequestHandler):
                         messages=messages,
                         tools=tools.TOOLS,
                         output_config={"effort": effort},
+                        # Tools, system prompt and history repeat every turn: cache them so each
+                        # reply starts sooner (and costs less) instead of re-reading all of it.
+                        cache_control={"type": "ephemeral"},
                         **extra,
                     ) as stream:
                         for event in stream:
@@ -947,6 +965,8 @@ def main():
     print("Loading voice…", end=" ", flush=True)
     Handler.voice, voice_status = tts.load()
     print(voice_status)
+    # Launching apps and serving music files is for the person at this PC only.
+    tools.LOCAL_CONTROL = args.host in ("127.0.0.1", "localhost", "::1")
     server = ThreadingHTTPServer((args.host, args.port), Handler)
     mode = "mock mode" if args.mock else f"starts on the {'free local' if Handler.brain == 'local' else 'Claude'} brain"
     print(f"Ultron online at http://{args.host}:{args.port}  ({mode})")

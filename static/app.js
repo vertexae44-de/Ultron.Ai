@@ -525,6 +525,7 @@ const TOOL_LABELS = {
   write_code: "Writing code…", read_code_editor: "Reading your code…",
   create_animation: "Animating…", generate_image: "Generating image…",
   web_search: "Searching the web…", read_webpage: "Reading a page…",
+  open_app: "Opening…", play_music: "Finding the song…",
 };
 
 function requestContext() {
@@ -565,13 +566,21 @@ async function ask(text, { voice = false } = {}) {
   // A sentence ends at . ! or ? followed by whitespace ("2.5 degrees" stays whole),
   // but not after abbreviations like "p.m." or "Dr.".
   const ABBREV = /(?:\b(?:[a-z]\.){1,3}|\b(?:mr|mrs|ms|dr|st|vs|etc|approx|no)\.)["')\]]*\s+$/i;
+  let spokeAny = false;
   const flushSentences = (force) => {
     const ends = /[.!?]+["')\]]*\s+/g;
     let m;
     while ((m = ends.exec(buffer))) {
       const end = m.index + m[0].length, chunk = buffer.slice(0, end);
       if (m[0][0] === "." && ABBREV.test(chunk)) continue;
-      speakChunk(chunk); buffer = buffer.slice(end); ends.lastIndex = 0;
+      speakChunk(chunk); spokeAny = true; buffer = buffer.slice(end); ends.lastIndex = 0;
+    }
+    // Start talking sooner: the reply's opening clause can go out at its first comma.
+    if (!spokeAny && !force) {
+      const c = /[,;:—–]\s/.exec(stripTags(buffer).length > 28 ? buffer : "");
+      if (c && stripTags(buffer.slice(0, c.index)).trim().split(/\s+/).length >= 4) {
+        speakChunk(buffer.slice(0, c.index + 1)); spokeAny = true; buffer = buffer.slice(c.index + 2);
+      }
     }
     if (force && buffer.trim()) { speakChunk(buffer); buffer = ""; }
   };
@@ -637,6 +646,8 @@ async function ask(text, { voice = false } = {}) {
       if (App.config) { App.config.images.left = ev.left; Account.render(); }
     } else if (ev.type === "app") {
       Voice.run(ev.action, ev.value);
+    } else if (ev.type === "music") {
+      YouTube.close(); MPlayer.playUrl(ev.url, ev.title);
     } else if (ev.type === "error") {
       Chat.notice(ev.message); speak(ev.message, "concerned");
     }

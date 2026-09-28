@@ -145,6 +145,7 @@ const VOICE_HELP = [
   ["Scrolling", "“scroll up”, “scroll down”, “go to the top”"],
   ["Voice", "“go to sleep”, “mute”, “unmute”, “turn off clapping”, “single clap”"],
   ["Account", "“log in”, “sign up”, “log out”"],
+  ["Apps & music", "“open Spotify”, “open Word”, “play Believer”, “play Blinding Lights on Spotify”, “open MrBeast channel”"],
   ["Search", "“search for …”, “look up …”, “what's the latest on …”, “who won …”"],
   ["Anything else", "Just ask — or just talk. Ultron can chat, and operate the app itself."],
 ];
