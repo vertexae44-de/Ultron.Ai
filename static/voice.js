@@ -133,7 +133,7 @@ const COMMANDS = [
 ];
 
 const VOICE_HELP = [
-  ["Talking", "“Ultron …” or two claps, then speak. After a reply, just answer — no wake word needed."],
+  ["Talking", "Just talk (always listening), or “Ultron …”. Two claps switch Ultron off, two more switch it back on."],
   ["Stop", "“stop”, “quiet”, “never mind” (“Ultron, stop” while it's talking)"],
   ["Chats", "“new chat”, “open my chats”, “open my last chat”, “open the chat about …”"],
   ["Screens", "“go home”, “show the gallery”, “open settings”, “close”"],
@@ -152,7 +152,7 @@ const Voice = {
   followUp: store.get("followUp", true),
   alwaysOn: store.get("alwaysOn", true),          // answer anything said, no "Ultron" or clap needed
   tutor: false,   // set by Claude via control_app tutor_mode; cleared with a new chat
-  clapMode: store.get("clapMode", "off"),         // off | single | double; off by default: noise woke it
+  clapMode: store.get("clapOnOff", "double"),     // off | single | double: claps switch Ultron off and on
   clapSense: store.get("clapSense", "normal"),    // low | normal | high
 
   // Something was said aloud: run it as a command, or send it to Claude.
@@ -326,19 +326,34 @@ const Voice = {
 
   idleHint() {
     const clap = this.clapMode === "double" ? "clap twice" : this.clapMode === "single" ? "clap" : "";
-    if (wakeEnabled && this.alwaysOn) return "Listening · just talk";
+    if (this.asleep) return `Off · ${clap || "say “Ultron”"} to turn me on`;
+    if (wakeEnabled && this.alwaysOn) return `Listening · just talk${clap ? ` · ${clap} to turn off` : ""}`;
     if (wakeEnabled) return `Standing by · say “Ultron”${clap ? " or " + clap : ""}`;
     if (clap && Clap.running) return `Standing by · ${clap} to talk`;
     return "Online · click the core to talk";
   },
 
   setClap(m) {
-    this.clapMode = m; store.set("clapMode", m);
+    this.clapMode = m; store.set("clapOnOff", m);
     if (m === "off") Clap.stop(); else Clap.start();
     renderLive();
   },
 
-  // A clap (or two) counts like hearing the wake word.
+  // Claps switch Ultron off (stops listening and answering) and back on.
+  asleep: false,
+  clapToggle() {
+    this.setAsleep(!this.asleep);
+    flare = this.asleep ? 0 : 1.2; chime();
+    speak(this.asleep ? "Going offline." : "Online.", "calm");
+  },
+  setAsleep(off) {
+    this.asleep = off;
+    if (off) interrupt();
+    else if (!wakeEnabled) setWake(true);
+    renderLive();
+  },
+
+  // An open palm (gesture control) counts like hearing the wake word.
   wake() {
     if (!SR) { toast("Voice input needs Chrome or Edge."); return; }
     interrupt();
@@ -418,7 +433,7 @@ const Clap = {
         }
       } catch (err) {
         toast("Clap detection needs the microphone.");
-        Voice.clapMode = "off"; store.set("clapMode", "off");
+        Voice.clapMode = "off"; store.set("clapOnOff", "off");
       } finally {
         this.starting = null; renderLive();
       }
@@ -454,7 +469,7 @@ const Clap = {
       if (gap < 0.12 || gap > 0.8) { this.recent = [at]; return; }
     }
     this.pending = setTimeout(() => {
-      if (this.recent.length === want && this.recent[want - 1] === at) { this.recent = []; Voice.wake(); }
+      if (this.recent.length === want && this.recent[want - 1] === at) { this.recent = []; Voice.clapToggle(); }
     }, 400);
   },
 };

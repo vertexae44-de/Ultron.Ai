@@ -354,6 +354,7 @@ function onWakeResult(e) {
       // Always-listening mode: anything said is a request, no wake word needed -- but not
       // Ultron's own voice coming back through the speakers, and not stray one-word noise.
       const quiet = mode === "idle" && performance.now() - lastSpokeAt > 900;
+      if (Voice.asleep) continue;     // switched off by claps: ignore everything but "Ultron"
       if (Voice.alwaysOn && quiet && (text.trim().split(/\s+/).length >= 2 || Voice.isCommand(text.trim()))) Voice.route(text.trim());
       else Voice.bareWord(text);   // "stop" works without the wake word
       continue;
@@ -362,6 +363,7 @@ function onWakeResult(e) {
     if (mode === "speaking" && /ultron/i.test(lastReply)) continue;
     if (!woke) {                             // react on the interim result for speed
       woke = true;
+      if (Voice.asleep) Voice.setAsleep(false);   // saying its name also switches it back on
       interrupt();                           // barge-in: stop any reply in progress
       flare = 1.2; chime(); ensureMic().catch(() => {});
     }
