@@ -42,7 +42,7 @@ MODELS = {  # id -> label shown in the Model menu
     "claude-opus-5-5": "Opus 5.5",
     "claude-sonnet-5": "Sonnet 5",
 }
-MODEL = os.environ.get("ULTRON_MODEL", "claude-opus-5")
+MODEL = os.environ.get("ULTRON_MODEL", "claude-sonnet-5")  # fastest to answer; Opus is in the menu
 if MODEL not in MODELS:
     MODELS[MODEL] = MODEL
 FALLBACK_MODELS = ("claude-opus-5", "claude-opus-5-5")  # models that take `fallbacks: "default"`

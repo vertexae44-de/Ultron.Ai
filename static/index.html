@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Ultron AI</title>
+<link rel="icon" href="ultron.ico" sizes="any">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#050304">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -519,7 +522,7 @@
     display: flex; align-items: center; justify-content: center; gap: 8px; }
 
   .j-stream { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; max-height: 110px; overflow: hidden; font-family: monospace; }
-  .j-stream li { font-size: 9px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; justify-content: space-between; gap: 8px; }
+  .j-stream li { flex: 0 0 auto; font-size: 9px; line-height: 1.35; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .j-stream li b { color: var(--red); font-weight: 600; }
   .j-stream li span:last-child { color: var(--red); flex: 0 0 auto; }
   .j-panel > .j-ticks { margin-top: 8px; }
@@ -896,18 +899,6 @@
           <div class="j-panel">
             <h4><i class="j-hicon"></i>ACTIVE PROCESSES</h4>
             <ul class="j-procs" id="jProcs"></ul>
-          </div>
-          <div class="j-panel j-profile">
-            <h4><i class="j-hicon"></i>USER PROFILE</h4>
-            <div class="j-user">
-              <div class="j-avatar" id="jAvatar"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 5-6 8-6s6.5 2 8 6"/></svg></div>
-              <div><b id="jUserName">Guest</b><span id="jUserRole">Not signed in</span></div>
-              <div class="j-userbtns">
-                <button data-act="settings" title="Settings"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/></svg><span>Settings</span></button>
-                <button id="jAuthBtn" title="Log in"><svg class="i" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg><span id="jAuthLabel">Log in</span></button>
-              </div>
-            </div>
-            <div class="j-access"><span>Access Level</span><b id="jAccess">GUEST</b><span class="j-ticks" id="jAccessTicks"></span></div>
           </div>
           <div class="j-panel">
             <h4><i class="j-hicon"></i>QUICK ACCESS</h4>

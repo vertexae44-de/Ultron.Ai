@@ -149,7 +149,7 @@ const VOICE_HELP = [
 const Voice = {
   followUp: store.get("followUp", true),
   tutor: false,   // set by Claude via control_app tutor_mode; cleared with a new chat
-  clapMode: store.get("clap", "double"),          // off | single | double
+  clapMode: store.get("clapMode", "off"),         // off | single | double; off by default: noise woke it
   clapSense: store.get("clapSense", "normal"),    // low | normal | high
 
   // Something was said aloud: run it as a command, or send it to Claude.
@@ -324,7 +324,7 @@ const Voice = {
   },
 
   setClap(m) {
-    this.clapMode = m; store.set("clap", m);
+    this.clapMode = m; store.set("clapMode", m);
     if (m === "off") Clap.stop(); else Clap.start();
     renderLive();
   },
@@ -409,7 +409,7 @@ const Clap = {
         }
       } catch (err) {
         toast("Clap detection needs the microphone.");
-        Voice.clapMode = "off"; store.set("clap", "off");
+        Voice.clapMode = "off"; store.set("clapMode", "off");
       } finally {
         this.starting = null; renderLive();
       }

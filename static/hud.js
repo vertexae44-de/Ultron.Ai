@@ -45,10 +45,11 @@ const HUD = {
 
   log(line) {
     const ul = $("jStream"); if (!ul) return;
-    const t = new Date().toLocaleTimeString([], { hour12: false });
-    const li = el("li", {}, el("b", {}, "[" + t + "] "), document.createTextNode(line));
+    if (ul.firstChild?.dataset.line === line) return;   // don't repeat the same event back to back
+    const t = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+    const li = el("li", { "data-line": line }, el("b", {}, t + " "), document.createTextNode(line));
     ul.prepend(li);
-    while (ul.children.length > 14) ul.lastChild.remove();
+    while (ul.children.length > 6) ul.lastChild.remove();
   },
 
   // ---------- clock ----------
@@ -208,7 +209,7 @@ const HUD = {
     ul.innerHTML = "";
     for (const [label, active] of rows) ul.append(el("li", { class: active ? "active" : "", "data-state": active ? "RUNNING" : "IDLE" }, el("i"), el("span", {}, label)));
     if (prevKey !== undefined && prevKey !== key) {
-      rows.forEach((r, i) => { if (r[1] && prevKey[i] !== "1") this.log(`${r[0]} started.`); });
+      rows.forEach((r, i) => { if (i > 2 && r[1] && prevKey[i] !== "1") this.log(`${r[0]} started.`); });
     }
     this._procKey = key;
   },
