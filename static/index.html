@@ -530,7 +530,16 @@
   .j-stream { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; max-height: 110px; overflow: hidden; font-family: monospace; }
   .j-markets { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
   .j-markets li.empty { font-size: 9px; color: var(--faint); }
-  .j-markets button { width: 100%; display: grid; grid-template-columns: 44px 1fr 58px; align-items: center; gap: 8px;
+  .j-live { margin-left: auto; font-size: 8px; letter-spacing: .12em; color: var(--faint); display: flex; align-items: center; gap: 4px; }
+  .j-live::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--faint); }
+  .j-live.on { color: #4ee08a; } .j-live.on::before { background: #4ee08a; box-shadow: 0 0 6px #4ee08a; animation: j-blink 1.2s ease-in-out infinite; }
+  .j-markets .sp { display: block; min-width: 0; }
+  .j-markets .price { font-size: 9.5px; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .j-markets li { border-radius: 4px; }
+  .j-markets li.tick-up { animation: j-tick-up .7s ease-out; } .j-markets li.tick-down { animation: j-tick-down .7s ease-out; }
+  @keyframes j-tick-up { from { background: rgba(78,224,138,.22); } to { background: transparent; } }
+  @keyframes j-tick-down { from { background: rgba(255,31,45,.25); } to { background: transparent; } }
+  .j-markets button { width: 100%; display: grid; grid-template-columns: 38px minmax(0, 1fr) 62px 46px; align-items: center; gap: 6px;
     padding: 4px 6px; border: 1px solid transparent; border-radius: 4px; background: none; color: var(--fg); cursor: pointer; font: inherit; }
   .j-markets button:hover { border-color: var(--line-strong); background: rgba(255,31,45,.06); }
   .j-markets b { font-size: 10px; letter-spacing: .04em; text-align: left; }
@@ -917,7 +926,7 @@
             <ul class="j-procs" id="jProcs"></ul>
           </div>
           <div class="j-panel">
-            <h4><i class="j-hicon"></i>MARKETS</h4>
+            <h4><i class="j-hicon"></i>MARKETS<span class="j-live" id="jMarketsLive">LIVE</span></h4>
             <ul class="j-markets" id="jMarkets"><li class="empty">Loading markets&hellip;</li></ul>
           </div>
           <div class="j-panel">

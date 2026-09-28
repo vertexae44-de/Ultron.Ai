@@ -471,6 +471,42 @@ def market_trends() -> dict:
     return out
 
 
+_COIN_IDS = {"BTC": "bitcoin", "ETH": "ethereum", "SOL": "solana", "DOGE": "dogecoin", "XRP": "ripple",
+             "ADA": "cardano", "LTC": "litecoin", "BNB": "binancecoin", "PEPE": "pepe", "SHIB": "shiba-inu"}
+_quote_cache: dict = {}   # symbol -> (time, quote)
+
+
+def quotes(stocks: list[str], crypto: list[str]) -> dict:
+    """Current price and day change for the dashboard's Markets panel, polled every ~20 s. Stocks
+    come from Yahoo's chart endpoint; crypto from CoinGecko (used only when the browser can't
+    reach Binance's live stream). Each answer is cached for 15 s."""
+    stocks = [s for s in stocks if re.fullmatch(r"[A-Z][A-Z.\-]{0,6}", s)][:8]
+    crypto = [c for c in crypto if c in _COIN_IDS][:8]
+    out, now = {}, time.time()
+    fresh = lambda sym: (hit := _quote_cache.get(sym)) and now - hit[0] < 15 and hit[1]
+    need = [s for s in stocks if not fresh(s)]
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        for sym, row in zip(need, pool.map(_stock_row, need)):
+            if row:
+                _quote_cache[sym] = (now, {"price": row["price"], "change_pct": row["change_pct"]})
+    coins = [c for c in crypto if not fresh(c)]
+    if coins:
+        try:
+            data = _market_json("https://api.coingecko.com/api/v3/simple/price",
+                                {"ids": ",".join(_COIN_IDS[c] for c in coins), "vs_currencies": "usd",
+                                 "include_24hr_change": "true"})
+            for c in coins:
+                q = data.get(_COIN_IDS[c]) or {}
+                if q.get("usd") is not None:
+                    _quote_cache[c] = (now, {"price": q["usd"], "change_pct": round(q.get("usd_24h_change") or 0, 2)})
+        except Exception:
+            pass
+    for sym in stocks + crypto:
+        if sym in _quote_cache:
+            out[sym] = _quote_cache[sym][1]
+    return {"quotes": out}
+
+
 def _get_market_trends(args, ctx):
     return market_trends()
 

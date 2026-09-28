@@ -217,6 +217,10 @@ class Handler(SimpleHTTPRequestHandler):
                 self._send_json(tools.list_images(user["id"]))
         elif path == "/api/markets":
             self._send_json(tools.market_trends())
+        elif path == "/api/quotes":
+            q = dict(urllib.parse.parse_qsl(self.path.partition("?")[2]))
+            split = lambda k: [s.strip().upper() for s in q.get(k, "").split(",") if s.strip()]
+            self._send_json(tools.quotes(split("stocks"), split("crypto")))
         elif path == "/api/youtube":
             q = dict(urllib.parse.parse_qsl(self.path.partition("?")[2])).get("q", "")
             try:

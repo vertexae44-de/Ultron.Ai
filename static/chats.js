@@ -243,6 +243,12 @@ onConfig(() => Chats.refresh());
 
 // ---------- markets: trending crypto and stocks, loaded on startup (no chat, no voice needed) ----------
 // A tiny inline sparkline for a market row: no library, just a normalised polyline.
+function fmtPrice(p) {
+  if (p >= 1000) return "$" + p.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  if (p >= 1) return "$" + p.toFixed(2);
+  return "$" + p.toPrecision(3);
+}
+
 function sparkSVG(points, up) {
   if (!points || points.length < 2) return el("span", { class: "spark" });
   const lo = Math.min(...points), hi = Math.max(...points), span = hi - lo || 1;
@@ -370,18 +376,91 @@ const Markets = {
             ["TSLA", "Tesla", "Stock"], ["AAPL", "Apple", "Stock"], ["NVDA", "Nvidia", "Stock"]]
             .map(([symbol, name, kind]) => ({ symbol, name, kind, change_pct: null, spark: [] })),
 
+  // Live numbers per symbol, kept across re-renders: { SYM: { price, chg, spark: [...] } }.
+  tick: {},
+  dashRows: [],
+
   renderDash(rows) {
     const box = $("jMarkets");
     if (!box) return;
     if (!rows.length) rows = this.POPULAR;
-    box.replaceChildren(...rows.map(c => {
-      const up = c.change_pct == null ? null : c.change_pct >= 0;
-      return el("li", {},
-        el("button", { type: "button", title: `Open the ${c.name} chart`, onclick: () => { if (this.openChart(c.name)) this.openChart(c.symbol); } },
-          el("b", {}, (c.symbol || "?").slice(0, 5)),
-          sparkSVG(c.spark, up),
-          el("span", { class: "chg " + (up ? "up" : "down") }, up === null ? "—" : (up ? "▲" : "▼") + Math.abs(c.change_pct) + "%")));
-    }));
+    this.dashRows = rows;
+    for (const c of rows) {
+      const t = this.tick[c.symbol] ||= { price: null, chg: null, spark: [] };
+      if (t.price == null && c.price != null) { t.price = c.price; t.chg = c.change_pct; }
+      if (!t.spark.length && c.spark?.length) t.spark = c.spark.slice(-40);
+    }
+    box.replaceChildren(...rows.map(c => el("li", { "data-sym": c.symbol },
+      el("button", { type: "button", title: `Open the ${c.name} chart`, onclick: () => { if (this.openChart(c.name)) this.openChart(c.symbol); } },
+        el("b", {}, (c.symbol || "?").slice(0, 5)), el("span", { class: "sp" }),
+        el("span", { class: "price" }), el("span", { class: "chg" })))));
+    rows.forEach(c => this.paint(c.symbol));
+    this.startLive();
+  },
+
+  paint(sym, flash) {
+    const li = document.querySelector(`#jMarkets li[data-sym="${CSS.escape(sym)}"]`), t = this.tick[sym];
+    if (!li || !t) return;
+    const up = t.chg == null ? null : t.chg >= 0;
+    li.querySelector(".sp").replaceChildren(sparkSVG(t.spark, up));
+    li.querySelector(".price").textContent = t.price == null ? "—" : fmtPrice(t.price);
+    const chg = li.querySelector(".chg");
+    chg.className = "chg " + (up === null ? "" : up ? "up" : "down");
+    chg.textContent = up === null ? "" : (up ? "▲" : "▼") + Math.abs(t.chg).toFixed(2) + "%";
+    if (flash) { li.classList.remove("tick-up", "tick-down"); void li.offsetWidth; li.classList.add(flash); }
+  },
+
+  update(sym, price, chg) {
+    const t = this.tick[sym];
+    if (!t || !isFinite(price)) return;
+    const flash = t.price == null || price === t.price ? null : price > t.price ? "tick-up" : "tick-down";
+    t.price = price;
+    if (chg != null && isFinite(chg)) t.chg = chg;
+    t.spark.push(price); if (t.spark.length > 40) t.spark.shift();
+    this.paint(sym, flash);
+  },
+
+  // Crypto: Binance's free public stream, a tick every second. Stocks (and crypto, if the stream
+  // can't connect): the server polls Yahoo / CoinGecko every 20 s -- free stock data isn't streamed.
+  ws: null, wsKey: "", wsOk: false, pollTimer: null,
+  startLive() {
+    const crypto = this.dashRows.filter(r => r.kind === "Crypto").map(r => r.symbol.toLowerCase());
+    const key = crypto.join(",");
+    if (key !== this.wsKey) {
+      this.wsKey = key;
+      try { this.ws?.close(); } catch {}
+      this.ws = null; this.wsOk = false;
+      if (crypto.length) this.connect(crypto);
+    }
+    if (!this.pollTimer) { this.poll(); this.pollTimer = setInterval(() => this.poll(), 20000); }
+  },
+  connect(crypto) {
+    const ws = new WebSocket("wss://stream.binance.com:9443/stream?streams=" + crypto.map(s => s + "usdt@miniTicker").join("/"));
+    this.ws = ws;
+    ws.onmessage = (e) => {
+      const d = JSON.parse(e.data).data;
+      if (!d?.s) return;
+      if (!this.wsOk) { this.wsOk = true; this.setLive(true); }
+      const close = +d.c, open = +d.o;
+      this.update(d.s.replace(/USDT$/, ""), close, open ? (close - open) / open * 100 : null);
+    };
+    ws.onclose = () => {
+      if (this.ws !== ws) return;             // replaced on purpose
+      this.wsOk = false; this.setLive(false);
+      setTimeout(() => { if (this.ws === ws) this.connect(crypto); }, 5000);
+    };
+  },
+  setLive(on) { $("jMarketsLive")?.classList.toggle("on", on); },
+  async poll() {
+    const stocks = this.dashRows.filter(r => r.kind === "Stock").map(r => r.symbol);
+    const crypto = this.wsOk ? [] : this.dashRows.filter(r => r.kind === "Crypto").map(r => r.symbol);
+    if (!stocks.length && !crypto.length) return;
+    try {
+      const r = await fetch(`/api/quotes?stocks=${stocks.join(",")}&crypto=${crypto.join(",")}`);
+      const { quotes } = await r.json();
+      for (const [sym, q] of Object.entries(quotes || {})) this.update(sym, q.price, q.change_pct);
+      if (!this.wsOk && Object.keys(quotes || {}).length) this.setLive(true);
+    } catch {}
   },
 
   // A short spoken line the first time Ultron starts up in a session -- "shows me the market" visually
