@@ -380,6 +380,10 @@
   #ytView #ytFrame, #ytView iframe { flex: 1; width: 100%; height: 100%; border: none; }
   #chartView { position: fixed; inset: 0; z-index: 80; background: #0a0a0a; display: flex; flex-direction: column; }
   #chartView .tv-frame { flex: 1; width: 100%; height: 100%; border: none; }
+  /* docked: sits over the dashboard's centre column, with the side panels still visible */
+  #chartView.docked { inset: auto; border: 1px solid var(--line-strong); border-radius: 12px; overflow: hidden;
+    box-shadow: 0 0 40px rgba(255,31,45,.22); z-index: 60; }
+  #chartView.docked .hologram-head h2 { font-size: 14px; }
   #chartView .hologram-head { position: static; background: #0e0e0e; border-bottom: 1px solid var(--line); }
   #chartView .chart-head { display: flex; align-items: baseline; gap: 10px; margin: 0; flex: 1; }
   #chartView .chart-price { font-size: 17px; }
@@ -522,6 +526,16 @@
     display: flex; align-items: center; justify-content: center; gap: 8px; }
 
   .j-stream { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; max-height: 110px; overflow: hidden; font-family: monospace; }
+  .j-markets { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+  .j-markets li.empty { font-size: 9px; color: var(--faint); }
+  .j-markets button { width: 100%; display: grid; grid-template-columns: 44px 1fr 58px; align-items: center; gap: 8px;
+    padding: 4px 6px; border: 1px solid transparent; border-radius: 4px; background: none; color: var(--fg); cursor: pointer; font: inherit; }
+  .j-markets button:hover { border-color: var(--line-strong); background: rgba(255,31,45,.06); }
+  .j-markets b { font-size: 10px; letter-spacing: .04em; text-align: left; }
+  .j-markets .spark { width: 100%; height: 16px; }
+  .j-markets .spark polyline { fill: none; stroke-width: 1.6; vector-effect: non-scaling-stroke; }
+  .j-markets .spark.up polyline { stroke: #4ee08a; } .j-markets .spark.down polyline { stroke: var(--red); }
+  .j-markets .chg { font-size: 9px; text-align: right; } .j-markets .chg.up { color: #4ee08a; } .j-markets .chg.down { color: var(--red); }
   .j-stream li { flex: 0 0 auto; font-size: 9px; line-height: 1.35; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .j-stream li b { color: var(--red); font-weight: 600; }
   .j-stream li span:last-child { color: var(--red); flex: 0 0 auto; }
@@ -901,6 +915,10 @@
             <ul class="j-procs" id="jProcs"></ul>
           </div>
           <div class="j-panel">
+            <h4><i class="j-hicon"></i>MARKETS</h4>
+            <ul class="j-markets" id="jMarkets"><li class="empty">Loading markets&hellip;</li></ul>
+          </div>
+          <div class="j-panel">
             <h4><i class="j-hicon"></i>QUICK ACCESS</h4>
             <div class="j-quick" id="jQuick"></div>
             <span class="j-ticks"></span>
@@ -1059,6 +1077,7 @@
   <div class="hologram-head">
     <h2 id="chartTitle">Chart</h2>
     <div class="chart-head" id="chartHead"></div>
+    <button class="icon-btn" id="expandChart" aria-label="Fullscreen" title="Fullscreen">⤢</button>
     <button class="icon-btn" id="closeChart" aria-label="Close">×</button>
   </div>
   <iframe id="chartFrame" class="tv-frame" frameborder="0" allowtransparency="true" scrolling="no"></iframe>

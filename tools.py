@@ -199,9 +199,8 @@ APP_ACTIONS = {
                "(there's no engine for that here). The user grows/shrinks it by spreading or pinching "
                "their hands and rotates it by moving their hand, in front of their camera.",
     "close_hologram": "close the hologram viewer",
-    "open_chart": "open an expanded trading chart for one of today's trending crypto or stocks; "
-                  "value = its name or symbol, e.g. 'bitcoin' or 'TSLA'. Only works for names "
-                  "currently in the trending list (get_market_trends or the Trending sidebar).",
+    "open_chart": "open a live fullscreen TradingView chart; value = a coin or company name or a ticker, "
+                  "e.g. 'bitcoin', 'tesla' or 'TSLA'. Prefer the ticker for anything not well known.",
     "play_youtube": "open an embedded YouTube player inside the app and play a search for value. "
                      "This plays on this device only, in the app itself -- there is no way to "
                      "control a separate phone or TV from here; say so plainly if asked.",

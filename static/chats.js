@@ -232,6 +232,8 @@ const Chats = {
 };
 
 $("closeChart")?.addEventListener("click", () => Markets.closeChart());
+$("expandChart")?.addEventListener("click", () => { Markets.full = !Markets.full; Markets.dock(); });
+addEventListener("resize", () => { if (!$("chartView").hidden) Markets.dock(); });
 $("newChatBtn").addEventListener("click", () => { Chats.closeDrawer(); Chat.reset(); });
 $("closeChats").addEventListener("click", () => Chats.closeDrawer());
 $("chatSearch").addEventListener("input", () => Chats.render());
@@ -261,6 +263,7 @@ const Markets = {
       return data;
     } catch {
       $("marketsList").replaceChildren(el("li", { class: "empty" }, "Couldn't reach the market right now."));
+      this.renderDash([]);
       return null;
     }
   },
@@ -279,9 +282,26 @@ const Markets = {
   // TradingView resolves plain US tickers on its own; crypto needs a quote currency to find a market.
   tvSymbol(row) { return row.kind === "Crypto" ? `${row.symbol}USD` : row.symbol; },
 
+  // Coins people ask for by name, and plain tickers, work even when they aren't trending today.
+  COINS: { bitcoin: "BTC", btc: "BTC", ethereum: "ETH", eth: "ETH", solana: "SOL", dogecoin: "DOGE", doge: "DOGE",
+           xrp: "XRP", ripple: "XRP", cardano: "ADA", litecoin: "LTC", bnb: "BNB", pepe: "PEPE", shiba: "SHIB" },
+  STOCKS: { tesla: "TSLA", apple: "AAPL", nvidia: "NVDA", microsoft: "MSFT", amazon: "AMZN", google: "GOOGL",
+            alphabet: "GOOGL", meta: "META", facebook: "META", netflix: "NFLX", amd: "AMD", intel: "INTC" },
+
+  lookup(query) {
+    const q = (query || "").trim().toLowerCase().replace(/[^a-z0-9 ]/g, "");
+    if (!q) return null;
+    const coin = Object.keys(this.COINS).find(k => q.split(" ").includes(k));
+    if (coin) return { name: coin[0].toUpperCase() + coin.slice(1), symbol: this.COINS[coin], kind: "Crypto" };
+    const stock = Object.keys(this.STOCKS).find(k => q.split(" ").includes(k));
+    if (stock) return { name: stock[0].toUpperCase() + stock.slice(1), symbol: this.STOCKS[stock], kind: "Stock" };
+    if (/^[a-z]{1,5}$/.test(q)) return { name: q.toUpperCase(), symbol: q.toUpperCase(), kind: "Stock" };
+    return null;
+  },
+
   openChart(query) {
-    const row = this.find(query);
-    if (!row) return `I don't have a chart for ${query || "that"} right now -- it isn't in today's trending list.`;
+    const row = this.find(query) || this.lookup(query);
+    if (!row) return `I couldn't find a chart for ${query || "that"}. Try its ticker, like TSLA.`;
     const up = row.change_pct == null ? null : row.change_pct >= 0;
     const symbol = this.tvSymbol(row);
     Modal.close();
@@ -294,7 +314,24 @@ const Markets = {
     $("chartFrame").src = `https://s.tradingview.com/widgetembed/?symbol=${encodeURIComponent(symbol)}&interval=15&theme=dark&style=1&locale=en&hidevolume=0&hidelegend=0&hide_top_toolbar=0&hide_side_toolbar=0&withdateranges=1&studies=%5B%5D`;
     $("chartView").hidden = false;
     document.body.classList.add("chart-open");
+    this.full = false;
+    this.dock();
     return "";
+  },
+
+  // On the dashboard the chart fills the middle column (the side panels stay visible); anywhere
+  // else, or after the expand button, it covers the whole screen.
+  full: false,
+  dock() {
+    const view = $("chartView"), mid = document.querySelector("#homeView.active .j-center");
+    const r = mid?.getBoundingClientRect();
+    const docked = !this.full && r && r.width > 200 && r.height > 200;
+    view.classList.toggle("docked", !!docked);
+    Object.assign(view.style, docked
+      ? { left: r.left + "px", top: r.top + "px", width: r.width + "px", height: r.height + "px" }
+      : { left: "", top: "", width: "", height: "" });
+    $("expandChart").textContent = docked ? "⤢" : "⤡";
+    $("expandChart").title = docked ? "Fullscreen" : "Back to the dashboard";
   },
 
   closeChart() {
@@ -308,6 +345,7 @@ const Markets = {
       ...(data.crypto || []).map(c => ({ ...c, kind: "Crypto" })),
       ...(data.stocks || []).map(c => ({ ...c, kind: "Stock" })),
     ];
+    this.renderDash(rows);
     if (!rows.length) {
       $("marketsList").replaceChildren(el("li", { class: "empty" }, "The market feeds aren't reachable right now."));
       return;
@@ -323,6 +361,21 @@ const Markets = {
           up === null ? null : el("span", { class: "chg " + (up ? "up" : "down") }, (up ? "▲ " : "▼ ") + Math.abs(c.change_pct) + "%")));
     }));
     $("marketsRefreshed").textContent = "Updated " + new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  },
+
+  // The dashboard's Markets panel: compact rows; click one for the live fullscreen chart.
+  renderDash(rows) {
+    const box = $("jMarkets");
+    if (!box) return;
+    if (!rows.length) { box.replaceChildren(el("li", { class: "empty" }, "Market feeds unreachable.")); return; }
+    box.replaceChildren(...rows.map(c => {
+      const up = c.change_pct == null ? null : c.change_pct >= 0;
+      return el("li", {},
+        el("button", { type: "button", title: `Open the ${c.name} chart`, onclick: () => this.openChart(c.symbol) },
+          el("b", {}, (c.symbol || "?").slice(0, 5)),
+          sparkSVG(c.spark, up),
+          el("span", { class: "chg " + (up ? "up" : "down") }, up === null ? "—" : (up ? "▲" : "▼") + Math.abs(c.change_pct) + "%")));
+    }));
   },
 
   // A short spoken line the first time Ultron starts up in a session -- "shows me the market" visually
